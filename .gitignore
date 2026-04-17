@@ -205,3 +205,30 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# Specific to NetOpsKube and local development
+dev-lessons
+NetOpsKube/
+NetOpsKube
+
+# Backup files
+*~
+*.bak
+*.bck
+*.swp
+*.tmp
+*.orig
+
+
+# VS Code
+.vscode/
+.vscode/*
+mcp-controller.code-workspace
+
+# Local History for Visual Studio Code
+.history/
+
+
+# Claude Code
+.claude/
+CLAUDE.md

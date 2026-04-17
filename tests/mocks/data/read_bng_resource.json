@@ -1,0 +1,29 @@
+[
+  {
+    "args": {
+      "uri": "bng://targets"
+    },
+    "response_type": "str",
+    "mock_data": "[\n  {\n    \"name\": \"clab-sros-bngt-agg\",\n    \"address\": \"172.21.20.21\",\n    \"hostname\": \"clab-sros-bngt-agg\",\n    \"kind\": \"NetworkDeviceTarget\",\n    \"namespace\": \"nok-bng\"\n  },\n  {\n    \"name\": \"clab-sros-bngt-bng1\",\n    \"address\": \"172.21.20.11\",\n    \"hostname\": \"clab-sros-bngt-bng1\",\n    \"kind\": \"NetworkDeviceTarget\",\n    \"namespace\": \"nok-bng\"\n  },\n  {\n    \"name\": \"clab-sros-bngt-bng2\",\n    \"address\": \"172.21.20.12\",\n    \"hostname\": \"clab-sros-bngt-bng2\",\n    \"kind\": \"NetworkDeviceTarget\",\n    \"namespace\": \"nok-bng\"\n  },\n  {\n    \"name\": \"clab-sros-bngt-core\",\n    \"address\": \"172.21.20.22\",\n    \"hostname\": \"clab-sros-bngt-core\",\n    \"kind\": \"NetworkDeviceTarget\",\n    \"namespace\": \"nok-bng\"\n  },\n  {\n    \"name\": \"clab-sros-bngt-bngblaster\",\n    \"address\": \"172.21.20.112\",\n    \"hostname\": \"clab-sros-bngt-bngblaster\",\n    \"kind\": \"NetworkHostTarget\",\n    \"namespace\": \"nok-bng\"\n  },\n  {\n    \"name\": \"clab-sros-bngt-radius\",\n    \"address\": \"172.21.20.111\",\n    \"hostname\": \"clab-sros-bngt-radius\",\n    \"kind\": \"NetworkHostTarget\",\n    \"namespace\": \"nok-bng\"\n  }\n]"
+  },
+  {
+    "args": {
+      "uri": "bng://targets/devices/error"
+    },
+    "response_type": "ErrorResponse",
+    "mock_data": {
+      "error": "ErrorResponse",
+      "detail": "{\n  \"error\": \"resource_not_found\",\n  \"detail\": \"Error creating resource from template: Error creating resource from template: {\\n  \\\"error\\\": \\\"namespace_not_found\\\",\\n  \\\"detail\\\": \\\"Namespace 'error' does not exist in the cluster\\\",\\n  \\\"uri\\\": \\\"bng://targets/devices/error\\\"\\n}\",\n  \"uri\": \"bng://targets/devices/error\"\n}"
+    }
+  },
+  {
+    "args": {
+      "uri": "error"
+    },
+    "response_type": "ValueError",
+    "mock_data": {
+      "error": "ValueError",
+      "detail": "Invalid URI scheme: 'error'. Only `bng://` URIs are supported."
+    }
+  }
+]

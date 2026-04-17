@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>concepts.md</title>
+    <meta http-equiv="Content-type" content="text/html;charset=UTF-8">
+    
+<style>
+/* https://github.com/microsoft/vscode/blob/master/extensions/markdown-language-features/media/markdown.css */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+body {
+	font-family: var(--vscode-markdown-font-family, -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif);
+	font-size: var(--vscode-markdown-font-size, 14px);
+	padding: 0 26px;
+	line-height: var(--vscode-markdown-line-height, 22px);
+	word-wrap: break-word;
+}
+
+html,footer,header{
+	font-family: var(--vscode-markdown-font-family, -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif);
+	font-size: var(--vscode-markdown-font-size, 14px);
+}
+
+#code-csp-warning {
+	position: fixed;
+	top: 0;
+	right: 0;
+	color: white;
+	margin: 16px;
+	text-align: center;
+	font-size: 12px;
+	font-family: sans-serif;
+	background-color:#444444;
+	cursor: pointer;
+	padding: 6px;
+	box-shadow: 1px 1px 1px rgba(0,0,0,.25);
+}
+
+#code-csp-warning:hover {
+	text-decoration: none;
+	background-color:#007acc;
+	box-shadow: 2px 2px 2px rgba(0,0,0,.25);
+}
+
+body.scrollBeyondLastLine {
+	margin-bottom: calc(100vh - 22px);
+}
+
+body.showEditorSelection .code-line {
+	position: relative;
+}
+
+body.showEditorSelection .code-active-line:before,
+body.showEditorSelection .code-line:hover:before {
+	content: "";
+	display: block;
+	position: absolute;
+	top: 0;
+	left: -12px;
+	height: 100%;
+}
+
+body.showEditorSelection li.code-active-line:before,
+body.showEditorSelection li.code-line:hover:before {
+	left: -30px;
+}
+
+.vscode-light.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.15);
+}
+
+.vscode-light.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.40);
+}
+
+.vscode-light.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-dark.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.4);
+}
+
+.vscode-dark.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.60);
+}
+
+.vscode-dark.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-high-contrast.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 160, 0, 0.7);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 160, 0, 1);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+img {
+	max-width: 100%;
+	max-height: 100%;
+}
+
+a {
+	text-decoration: none;
+}
+
+a:hover {
+	text-decoration: underline;
+}
+
+a:focus,
+input:focus,
+select:focus,
+textarea:focus {
+	outline: 1px solid -webkit-focus-ring-color;
+	outline-offset: -1px;
+}
+
+hr {
+	border: 0;
+	height: 2px;
+	border-bottom: 2px solid;
+}
+
+h1 {
+	padding-bottom: 0.3em;
+	line-height: 1.2;
+	border-bottom-width: 1px;
+	border-bottom-style: solid;
+}
+
+h1, h2, h3 {
+	font-weight: normal;
+}
+
+table {
+	border-collapse: collapse;
+}
+
+table > thead > tr > th {
+	text-align: left;
+	border-bottom: 1px solid;
+}
+
+table > thead > tr > th,
+table > thead > tr > td,
+table > tbody > tr > th,
+table > tbody > tr > td {
+	padding: 5px 10px;
+}
+
+table > tbody > tr + tr > td {
+	border-top: 1px solid;
+}
+
+blockquote {
+	margin: 0 7px 0 5px;
+	padding: 0 16px 0 10px;
+	border-left-width: 5px;
+	border-left-style: solid;
+}
+
+code {
+	font-family: Menlo, Monaco, Consolas, "Droid Sans Mono", "Courier New", monospace, "Droid Sans Fallback";
+	font-size: 1em;
+	line-height: 1.357em;
+}
+
+body.wordWrap pre {
+	white-space: pre-wrap;
+}
+
+pre:not(.hljs),
+pre.hljs code > div {
+	padding: 16px;
+	border-radius: 3px;
+	overflow: auto;
+}
+
+pre code {
+	color: var(--vscode-editor-foreground);
+	tab-size: 4;
+}
+
+/** Theming */
+
+.vscode-light pre {
+	background-color: rgba(220, 220, 220, 0.4);
+}
+
+.vscode-dark pre {
+	background-color: rgba(10, 10, 10, 0.4);
+}
+
+.vscode-high-contrast pre {
+	background-color: rgb(0, 0, 0);
+}
+
+.vscode-high-contrast h1 {
+	border-color: rgb(0, 0, 0);
+}
+
+.vscode-light table > thead > tr > th {
+	border-color: rgba(0, 0, 0, 0.69);
+}
+
+.vscode-dark table > thead > tr > th {
+	border-color: rgba(255, 255, 255, 0.69);
+}
+
+.vscode-light h1,
+.vscode-light hr,
+.vscode-light table > tbody > tr + tr > td {
+	border-color: rgba(0, 0, 0, 0.18);
+}
+
+.vscode-dark h1,
+.vscode-dark hr,
+.vscode-dark table > tbody > tr + tr > td {
+	border-color: rgba(255, 255, 255, 0.18);
+}
+
+</style>
+
+<style>
+/* Tomorrow Theme */
+/* http://jmblog.github.com/color-themes-for-google-code-highlightjs */
+/* Original theme - https://github.com/chriskempson/tomorrow-theme */
+
+/* Tomorrow Comment */
+.hljs-comment,
+.hljs-quote {
+	color: #8e908c;
+}
+
+/* Tomorrow Red */
+.hljs-variable,
+.hljs-template-variable,
+.hljs-tag,
+.hljs-name,
+.hljs-selector-id,
+.hljs-selector-class,
+.hljs-regexp,
+.hljs-deletion {
+	color: #c82829;
+}
+
+/* Tomorrow Orange */
+.hljs-number,
+.hljs-built_in,
+.hljs-builtin-name,
+.hljs-literal,
+.hljs-type,
+.hljs-params,
+.hljs-meta,
+.hljs-link {
+	color: #f5871f;
+}
+
+/* Tomorrow Yellow */
+.hljs-attribute {
+	color: #eab700;
+}
+
+/* Tomorrow Green */
+.hljs-string,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-addition {
+	color: #718c00;
+}
+
+/* Tomorrow Blue */
+.hljs-title,
+.hljs-section {
+	color: #4271ae;
+}
+
+/* Tomorrow Purple */
+.hljs-keyword,
+.hljs-selector-tag {
+	color: #8959a8;
+}
+
+.hljs {
+	display: block;
+	overflow-x: auto;
+	color: #4d4d4c;
+	padding: 0.5em;
+}
+
+.hljs-emphasis {
+	font-style: italic;
+}
+
+.hljs-strong {
+	font-weight: bold;
+}
+</style>
+
+<style>
+/*
+ * Custom MD PDF CSS
+ */
+html,footer,header{
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif, "Meiryo";
+
+ }
+body {
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif, "Meiryo";
+	padding: 0 12px;
+}
+
+pre {
+	background-color: #f8f8f8;
+	border: 1px solid #cccccc;
+	border-radius: 3px;
+	overflow-x: auto;
+	white-space: pre-wrap;
+	overflow-wrap: break-word;
+}
+
+pre:not(.hljs) {
+	padding: 23px;
+	line-height: 19px;
+}
+
+blockquote {
+	background: rgba(127, 127, 127, 0.1);
+	border-color: rgba(0, 122, 204, 0.5);
+}
+
+.emoji {
+	height: 1.4em;
+}
+
+code {
+	font-size: 14px;
+	line-height: 19px;
+}
+
+/* for inline code */
+:not(pre):not(.hljs) > code {
+	color: #C9AE75; /* Change the old color so it seems less like an error */
+	font-size: inherit;
+}
+
+/* Page Break : use <div class="page"/> to insert page break
+-------------------------------------------------------- */
+.page {
+	page-break-after: always;
+}
+
+</style>
+<link rel="stylesheet" href="file:///home/azyablov/dev/mcp-controller/R%3A%5C2.Travail%5C1.Enseignement%5CCours%5C_1.Outils%5C2.Developpement%5C1.SCSS%5Cmain.css" type="text/css"><link rel="stylesheet" href="file:///home/azyablov/dev/mcp-controller/D%3A%5Crdaros%5CCours%5C_1.Outils%5C2.Developpement%5C1.SCSS%5Cmain.css" type="text/css">
+</head>
+
+<body>
+    <h1 id="mcp-controller-design-plan--nokia-bng-observability">MCP Controller Design Plan — Nokia BNG Observability</h1>
+<h2 id="context">Context</h2>
+<p>The mcp-controller project aims to provide an intelligent MCP server that exposes Nokia BNG state and availability metrics with engineering SME context. Metrics are collected via gNMIC into Prometheus, state data is streamed via gNMI (gnmic-state job), and logs flow to Loki. The aim is to address it with AI-facing interface.</p>
+<p>The design must also support future controllers for other network functions (SeGW, SR-MPLS, SRv6, Traffic Engineering, Network Performance) with a composable dependency model.</p>
+<hr>
+<h2 id="1-mcp-exposure-pattern-resources--resource-templates--tools--prompts-invenstigations-workflows">1. MCP Exposure Pattern: Resources + Resource Templates + Tools + Prompts (Invenstigations Workflows)</h2>
+<p><strong>Recommended: Option C</strong> — three-tier exposure.</p>
+<table>
+<thead>
+<tr>
+<th>Layer</th>
+<th>Purpose</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Resources</strong></td>
+<td>Orientation &amp; discovery — what this controller is, what it monitors</td>
+<td><code>bng://manifest</code>, <code>bng://targets</code>, <code>bng://health/summary</code></td>
+</tr>
+<tr>
+<td><strong>Resource Templates</strong> (parameterized)</td>
+<td>Data access — fetch metrics/logs/state by device and time range</td>
+<td><code>bng://metrics/cpu/{source}</code>, <code>bng://logs/syslog/{source}</code>, <code>bng://state/srrp/{source}</code></td>
+</tr>
+<tr>
+<td><strong>Tools</strong></td>
+<td>Intelligence — analysis, correlation, capacity planning</td>
+<td><code>assess_bng_health</code>, <code>analyze_srrp_stability</code>, <code>forecast_capacity</code>, <code>correlate_events</code>, <code>compare_bng_pair</code></td>
+</tr>
+<tr>
+<td><strong>Prompts</strong> (investigation workflows)</td>
+<td>Structured troubleshooting workflows</td>
+<td><code>investigate_bng_issue</code>, <code>check_redundancy</code>, <code>capacity_review</code>, <code>subscriber_diagnostics</code></td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="2-static-resources-3">2. Static Resources (3)</h2>
+<table>
+<thead>
+<tr>
+<th>URI</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>bng://manifest</code></td>
+<td>Controller manifest: capabilities, version, dependencies</td>
+</tr>
+<tr>
+<td><code>bng://targets</code></td>
+<td>Monitored devices (bng1, bng2, agg, core) with roles and labels</td>
+</tr>
+<tr>
+<td><code>bng://health/summary</code></td>
+<td>Real-time overall BNG health (aggregated from all metrics)</td>
+</tr>
+<tr>
+<td><code>bng://sme/threshold_policies</code></td>
+<td>Threshold policies (configurable) for BNG health</td>
+</tr>
+<tr>
+<td><code>bng://sme/correlation_rules</code></td>
+<td>Correlation rules (configurable) for BNG health</td>
+</tr>
+<tr>
+<td><code>bng://sme/alerts</code></td>
+<td>Active alerts (configurable) for BNG health, ideally it must configure necessary alerts in Prometheus Alertmanager</td>
+</tr>
+<tr>
+<td><code>bng://sme/recommended_actions</code></td>
+<td>Recommended actions (configurable) for BNG health, nbot sure about this one</td>
+</tr>
+</tbody>
+</table>
+<h2 id="3-resource-templates-8">3. Resource Templates (8)</h2>
+<table>
+<thead>
+<tr>
+<th>URI Template</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>bng://metrics/cpu/{source}</code></td>
+<td>CPU usage (sample_period=60)</td>
+</tr>
+<tr>
+<td><code>bng://metrics/memory/{source}</code></td>
+<td>Memory utilization (in-use vs available)</td>
+</tr>
+<tr>
+<td><code>bng://metrics/subscribers/{source}</code></td>
+<td>PPP sessions, IPv4/IPv6 host counts (current + peak)</td>
+</tr>
+<tr>
+<td><code>bng://metrics/srrp/{source}</code></td>
+<td>SRRP stats: adv errors, discards, master/non-master transitions</td>
+</tr>
+<tr>
+<td><code>bng://metrics/resources/{source}</code></td>
+<td>FP resources: policers, queues, SAP instances, next-hop entries (as %)</td>
+</tr>
+<tr>
+<td><code>bng://metrics/traffic/{source}</code></td>
+<td>Port in/out octets and errors (rate-converted)</td>
+</tr>
+<tr>
+<td><code>bng://logs/syslog/{source}</code></td>
+<td>Recent syslog events from Loki</td>
+</tr>
+<tr>
+<td><code>bng://state/srrp/{source}</code></td>
+<td>SRRP oper-state changes from gNMI (gnmic-state job)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="4-tools-5">4. Tools (5)</h2>
+<table>
+<thead>
+<tr>
+<th>Tool</th>
+<th>Input</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>assess_bng_health</code></td>
+<td><code>{source?: str}</code></td>
+<td>Full health assessment across all metric categories. Returns per-category green/yellow/red status, active alerts, recommended actions</td>
+</tr>
+<tr>
+<td><code>analyze_srrp_stability</code></td>
+<td><code>{source: str, range?: str}</code></td>
+<td>SRRP redundancy analysis: flap frequency, adv error trends, correlation with CPU/memory. Returns stability score + failover risk</td>
+</tr>
+<tr>
+<td><code>forecast_capacity</code></td>
+<td><code>{source: str, category: str}</code></td>
+<td>Capacity trend for policers/queues/SAP/next-hops. Linear regression to project exhaustion timeline</td>
+</tr>
+<tr>
+<td><code>correlate_events</code></td>
+<td><code>{source: str, range?: str}</code></td>
+<td>Cross-correlates syslog, SRRP state changes, CPU spikes, subscriber drops within a time window</td>
+</tr>
+<tr>
+<td><code>compare_bng_pair</code></td>
+<td><code>{source_a: str, source_b: str}</code></td>
+<td>Compares bng1 vs bng2 across all metrics. Highlights asymmetries (load skew, resource skew, SRRP role mismatch)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="5-multi-controller-data-model">5. Multi-Controller Data Model</h2>
+<h3 id="architecture-each-module--a-separate-mcp-controller-mcp-server">Architecture: Each module = a separate MCP controller (MCP server)</h3>
+<p>Each network function (BNG, SR-MPLS, SeGW, etc.) runs as its <strong>own MCP server</strong>. The MCP client  connects to multiple servers simultaneously.<br>
+Dependencies between controllers are declared at the <strong>capability level</strong> — referencing specific resources, tools, or prompts in other controllers. For example, BNG may depend on SR-MPLS for LSP state information, or SeGW for security context.</p>
+<h3 id="controller-manifest--pydantic-models">Controller Manifest — Pydantic models</h3>
+<pre class="hljs"><code><div><span class="hljs-keyword">from</span> pydantic <span class="hljs-keyword">import</span> BaseModel, Field
+<span class="hljs-keyword">from</span> typing <span class="hljs-keyword">import</span> Literal
+
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">ControllerCapability</span><span class="hljs-params">(BaseModel)</span>:</span>
+    <span class="hljs-string">"""A capability this controller exposes."""</span>
+    name: str                     <span class="hljs-comment"># "assess_bng_health" or "bng://metrics/cpu/{source}"</span>
+    kind: Literal[<span class="hljs-string">"resource"</span>, <span class="hljs-string">"resource_template"</span>, <span class="hljs-string">"tool"</span>, <span class="hljs-string">"prompt"</span>]
+    description: str
+    tags: list[str] = Field(default_factory=list)
+
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">CapabilityRef</span><span class="hljs-params">(BaseModel)</span>:</span>
+    <span class="hljs-string">"""Reference to a specific capability in another MCP controller."""</span>
+    kind: Literal[<span class="hljs-string">"resource"</span>, <span class="hljs-string">"resource_template"</span>, <span class="hljs-string">"tool"</span>, <span class="hljs-string">"prompt"</span>]
+    name: str                     <span class="hljs-comment"># URI for resources, name for tools/prompts</span>
+
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">ControllerDependency</span><span class="hljs-params">(BaseModel)</span>:</span>
+    <span class="hljs-string">"""Dependency on another MCP controller, with fine-grained capability refs."""</span>
+    controller_id: str            <span class="hljs-comment"># "sr-mpls"</span>
+    min_version: str
+    required: bool = <span class="hljs-literal">False</span>        <span class="hljs-comment"># hard (fail if missing) vs soft (degrade gracefully)</span>
+    reason: str                   <span class="hljs-comment"># "BNG uplinks use MPLS transport"</span>
+    capability_refs: list[CapabilityRef] = Field(default_factory=list)
+
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">ControllerManifest</span><span class="hljs-params">(BaseModel)</span>:</span>
+    controller_id: str            <span class="hljs-comment"># "bng", "sr-mpls", "security-gw"</span>
+    version: str                  <span class="hljs-comment"># semver</span>
+    display_name: str             <span class="hljs-comment"># "Nokia BNG Observability"</span>
+    network_function: str         <span class="hljs-comment"># canonical NF name</span>
+    description: str
+    capabilities: list[ControllerCapability] = Field(default_factory=list)
+    dependencies: list[ControllerDependency] = Field(default_factory=list)
+    data_sources: list[str] = Field(default_factory=list)
+    tags: list[str] = Field(default_factory=list)
+</div></code></pre>
+<h3 id="example-bng-declares-dependency-on-sr-mpls">Example: BNG declares dependency on SR-MPLS</h3>
+<pre class="hljs"><code><div>ControllerDependency(
+    controller_id=<span class="hljs-string">"sr-mpls"</span>,
+    min_version=<span class="hljs-string">"0.1.0"</span>,
+    required=<span class="hljs-literal">False</span>,
+    reason=<span class="hljs-string">"BNG uplinks use MPLS transport; LSP state affects subscriber reachability"</span>,
+    capability_refs=[
+        CapabilityRef(kind=<span class="hljs-string">"resource_template"</span>, name=<span class="hljs-string">"sr-mpls://metrics/lsp/{source}"</span>),
+        CapabilityRef(kind=<span class="hljs-string">"tool"</span>, name=<span class="hljs-string">"get_lsp_status"</span>),
+    ],
+)
+</div></code></pre>
+<p>This enables the LLM to understand: &quot;When investigating BNG connectivity issues, I should also check sr-mpls://metrics/lsp/{source} and call get_lsp_status on the SR-MPLS controller.&quot;</p>
+<h3 id="transport-http-streamable-http">Transport: HTTP (Streamable HTTP)</h3>
+<p>This controller uses <strong>HTTP transport</strong> (Streamable HTTP). The MCP server exposes an HTTP endpoint that MCP clients connect to.</p>
+<h3 id="controller-registry-controllerregistryyaml">Controller Registry (<code>controller_registry.yaml</code>)</h3>
+<p>Describes how separate MCP controllers (each its own project/deployment) relate to each other:</p>
+<pre class="hljs"><code><div><span class="hljs-attr">controllers:</span>
+  <span class="hljs-bullet">-</span> <span class="hljs-attr">id:</span> <span class="hljs-string">bng</span>
+    <span class="hljs-attr">version:</span> <span class="hljs-string">"0.1.0"</span>
+    <span class="hljs-attr">url:</span> <span class="hljs-string">"http://bng-mcp-controller:8000/mcp"</span>
+
+  <span class="hljs-bullet">-</span> <span class="hljs-attr">id:</span> <span class="hljs-string">sr-mpls</span>
+    <span class="hljs-attr">version:</span> <span class="hljs-string">"0.1.0"</span>
+    <span class="hljs-attr">url:</span> <span class="hljs-string">"http://sr-mpls-mcp-controller:8000/mcp"</span>
+
+  <span class="hljs-comment"># Each is a separate project/deployment, connected via HTTP</span>
+</div></code></pre>
+<h3 id="how-cross-controller-interaction-works---to-be-reviewed">How cross-controller interaction works &lt;- To be reviewed</h3>
+<ol>
+<li>
+<p><strong>LLM-orchestrated</strong> (primary): The LLM reads <code>bng://manifest</code>, sees dependencies with <code>capability_refs</code>, and knows to query the SR-MPLS controller's resources/tools when investigating cross-domain issues. The LLM is the orchestrator across multiple MCP servers.</p>
+</li>
+<li>
+<p><strong>Programmatic</strong> (future): A controller can embed an MCP client to call another controller's HTTP endpoint directly within a tool execution. For example,<code>assess_bng_health</code> fetches <code>sr-mpls://metrics/lsp/{source}</code> from the SR-MPLS controller if available.</p>
+</li>
+</ol>
+<p>Each controller exposes its manifest as a resource (<code>{id}://manifest</code>), enabling the LLM to traverse the full dependency graph across all connected controllers.</p>
+<h2 id="6-prompts-investigation-workflows---to-be-reviewed">6. Prompts (Investigation Workflows) &lt;- To be reviewed</h2>
+<p>MCP Prompts guide the LLM through structured diagnostic workflows using resources and tools.</p>
+<table>
+<thead>
+<tr>
+<th>Prompt</th>
+<th>Arguments</th>
+<th>What it provides</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>investigate_bng_issue</code></td>
+<td><code>source: str, symptom: str</code></td>
+<td>Structured troubleshooting workflow: &quot;You are a Nokia BNG SME. Investigate {symptom} on {source}. Start by reading <code>bng://health/summary</code>, then check CPU/memory, SRRP state, syslog events. Use <code>correlate_events</code> to find root cause.&quot;</td>
+</tr>
+<tr>
+<td><code>check_redundancy</code></td>
+<td><code>source: str</code></td>
+<td>SRRP redundancy diagnostic: &quot;Analyze SRRP state for {source}. Read <code>bng://metrics/srrp/{source}</code> and <code>bng://logs/srrp-events/{source}</code>. Check for flapping, adv errors, asymmetric roles. Use <code>analyze_srrp_stability</code> and <code>compare_bng_pair</code>.&quot;</td>
+</tr>
+<tr>
+<td><code>capacity_review</code></td>
+<td><code>source: str</code></td>
+<td>Resource capacity assessment: &quot;Review capacity for {source}. Check FP policers, queues, SAP instances, next-hop entries via <code>bng://metrics/resources/{source}</code>. Flag anything &gt;70%. Use <code>forecast_capacity</code> for trend projections.&quot;</td>
+</tr>
+<tr>
+<td><code>subscriber_diagnostics</code></td>
+<td><code>source: str</code></td>
+<td>Subscriber health check: &quot;Examine subscriber state on {source}. Read <code>bng://metrics/subscribers/{source}</code> for session counts and host allocation. Cross-reference with CPU, memory, and FP resource pressure.&quot;</td>
+</tr>
+</tbody>
+</table>
+<p>Prompts live in <code>bng/prompts.py</code> and are registered on the MCP server alongside resources and tools.</p>
+<hr>
+<h2 id="7-bng-sme-intelligence-smepy">7. BNG SME Intelligence (<code>sme.py</code>)</h2>
+<h3 id="threshold-policies">Threshold Policies</h3>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Green</th>
+<th>Yellow</th>
+<th>Red</th>
+<th>Context</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CPU usage</td>
+<td>0-60%</td>
+<td>60-80%</td>
+<td>80-100%</td>
+<td>&gt;80% can delay SRRP adverts and subscriber auth</td>
+</tr>
+<tr>
+<td>Memory</td>
+<td>0-70%</td>
+<td>70-85%</td>
+<td>85-100%</td>
+<td>Exhaustion blocks session establishment</td>
+</tr>
+<tr>
+<td>SRRP flap rate</td>
+<td>0-1/hr</td>
+<td>1-5/hr</td>
+<td>&gt;5/hr</td>
+<td>Flapping causes subscriber micro-interruptions</td>
+</tr>
+<tr>
+<td>FP policer util</td>
+<td>0-70%</td>
+<td>70-90%</td>
+<td>90-100%</td>
+<td>Exhaustion prevents new subscriber QoS instantiation</td>
+</tr>
+<tr>
+<td>Next-hop util</td>
+<td>0-70%</td>
+<td>70-85%</td>
+<td>85-100%</td>
+<td>Exhaustion blocks new subscriber route installation</td>
+</tr>
+</tbody>
+</table>
+<h3 id="correlation-rules">Correlation Rules</h3>
+<ul>
+<li><strong>Failover risk</strong>: high CPU + SRRP adv errors -&gt; Means of potential unplanned failover?</li>
+<li><strong>Capacity saturation</strong>: FP resources approaching limits + subscriber growth -&gt; need rebalancing.</li>
+</ul>
+<h2 id="8-verification">8. Verification</h2>
+<pre class="hljs"><code><div><span class="hljs-comment"># Install dependencies</span>
+pip install -e <span class="hljs-string">".[dev]"</span>
+
+<span class="hljs-comment"># Run tests</span>
+pytest
+
+<span class="hljs-comment"># Start HTTP server</span>
+python -m mcp_controller --host 0.0.0.0 --port 8000
+</div></code></pre>
+<h2 id="9-mcp-inspector">9. MCP Inspector</h2>
+<p>The MCP Inspector is the official tool for testing MCP servers. It provides a web UI to browse resources, call tools, test prompts, and inspect protocol messages.</p>
+<pre class="hljs"><code><div>npx @modelcontextprotocol/inspector
+</div></code></pre>
+<h2 id="10-future-considerations">10. Future Considerations</h2>
+<ul>
+<li>MCP client may be able to generate appropriate UI for the user based on the received LLM reply / requested tools to use.</li>
+<li>UI elements are driven by pydamtic models and schemas.</li>
+</ul>
+
+</body>
+
+</html>

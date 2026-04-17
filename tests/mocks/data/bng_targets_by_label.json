@@ -1,0 +1,45 @@
+[
+  {
+    "args": {
+      "label_selector": "kustomize.toolkit.fluxcd.io/name=network-device-targets"
+    },
+    "response_type": "list",
+    "mock_data": [
+      {
+        "name": "clab-sros-bngt-agg",
+        "address": "172.21.20.21",
+        "hostname": "clab-sros-bngt-agg",
+        "kind": "NetworkDeviceTarget",
+        "namespace": "nok-bng"
+      },
+      {
+        "name": "clab-sros-bngt-bng1",
+        "address": "172.21.20.11",
+        "hostname": "clab-sros-bngt-bng1",
+        "kind": "NetworkDeviceTarget",
+        "namespace": "nok-bng"
+      },
+      {
+        "name": "clab-sros-bngt-bng2",
+        "address": "172.21.20.12",
+        "hostname": "clab-sros-bngt-bng2",
+        "kind": "NetworkDeviceTarget",
+        "namespace": "nok-bng"
+      },
+      {
+        "name": "clab-sros-bngt-core",
+        "address": "172.21.20.22",
+        "hostname": "clab-sros-bngt-core",
+        "kind": "NetworkDeviceTarget",
+        "namespace": "nok-bng"
+      }
+    ]
+  },
+  {
+    "args": {
+      "label_selector": "error=error"
+    },
+    "response_type": "list",
+    "mock_data": []
+  }
+]

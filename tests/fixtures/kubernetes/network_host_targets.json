@@ -1,0 +1,30 @@
+[
+  {
+    "apiVersion": "nok.dev/v1alpha1",
+    "kind": "NetworkHostTarget",
+    "metadata": {
+      "name": "jumphost1",
+      "namespace": "nok",
+      "labels": {"role": "jumphost", "env": "prod"},
+      "annotations": {},
+      "uid": "dddd-eeee-ffff-0001",
+      "resourceVersion": "200",
+      "creationTimestamp": "2025-02-01T08:00:00Z"
+    },
+    "spec": {
+      "address": "10.1.0.1",
+      "hostname": "jumphost1.lab.nok.dev",
+      "commonLabels": {"role": "jumphost"},
+      "ssh": {
+        "port": 22,
+        "credentialsSecretRef": "ssh-creds",
+        "hostKeyValidation": false,
+        "connectionTimeout": 30
+      }
+    },
+    "status": {
+      "reachability": "Reachable",
+      "lastProbeTime": "2025-06-01T12:00:00Z"
+    }
+  }
+]

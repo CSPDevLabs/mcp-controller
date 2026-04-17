@@ -1,0 +1,1 @@
+"""MCP Controller application."""

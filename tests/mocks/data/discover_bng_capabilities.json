@@ -1,0 +1,151 @@
+[
+  {
+    "args": {},
+    "response_type": "dict",
+    "mock_data": {
+      "resource": [
+        {
+          "name": "bng://manifest",
+          "description": "Controller manifest with capabilities and dependencies",
+          "tags": [
+            "manifest",
+            "discovery"
+          ]
+        },
+        {
+          "name": "bng://namespaces",
+          "description": "All Kubernetes namespaces visible to the controller — useful for discovering where BNG target CRs may live",
+          "tags": [
+            "discovery"
+          ]
+        },
+        {
+          "name": "bng://targets",
+          "description": "All monitored BNG targets (devices and hosts) — name, address, hostname, kind, namespace",
+          "tags": [
+            "targets",
+            "discovery"
+          ]
+        },
+        {
+          "name": "bng://targets/devices",
+          "description": "All NetworkDeviceTarget CRs with full spec and status",
+          "tags": [
+            "targets",
+            "discovery"
+          ]
+        },
+        {
+          "name": "bng://targets/hosts",
+          "description": "All NetworkHostTarget CRs with full spec and status",
+          "tags": [
+            "targets",
+            "discovery"
+          ]
+        },
+        {
+          "name": "bng://health/summary",
+          "description": "Real-time overall BNG health status — aggregated across all metric categories (CPU, memory, SRRP, FP resources, subscribers). To be implemented.",
+          "tags": [
+            "observability",
+            "status"
+          ]
+        }
+      ],
+      "tool": [
+        {
+          "name": "bng_targets_by_label",
+          "description": "Monitored BNG targets filtered by Kubernetes label selector, e.g. `role=bng` or `env=prod,role=bng`",
+          "tags": [
+            "targets",
+            "discovery"
+          ]
+        },
+        {
+          "name": "read_bng_manifest",
+          "description": "Read the full BNG controller manifest including identity, capabilities, dependencies, and data sources",
+          "tags": [
+            "manifest",
+            "discovery"
+          ]
+        },
+        {
+          "name": "discover_bng_capabilities",
+          "description": "Discover all BNG capabilities grouped by kind (resource, resource_template, tool, prompt)",
+          "tags": [
+            "discovery"
+          ]
+        },
+        {
+          "name": "read_bng_resource",
+          "description": "Read any registered BNG resource by its `bng://` URI — supports static resources and parameterized templates",
+          "tags": [
+            "discovery"
+          ]
+        },
+        {
+          "name": "bng_device_unavailability_map",
+          "description": "Check whether a BNG device was unreachable during a time window using absent_over_time() on CPU telemetry. Supports an optional start_time for historical queries.",
+          "tags": [
+            "observability",
+            "metrics"
+          ]
+        },
+        {
+          "name": "bng_device_cpu_usage",
+          "description": "Query CPU usage time series for a BNG device over a time window with summary statistics (avg, min, max) and quantiles (p80, p95, p98). Supports an optional start_time for historical queries.",
+          "tags": [
+            "observability",
+            "metrics"
+          ]
+        },
+        {
+          "name": "bng_device_memory_usage",
+          "description": "Query memory utilization (%) time series for a BNG device over a time window with summary statistics (avg, min, max) and quantiles (p80, p95, p98). Supports an optional start_time for historical queries.",
+          "tags": [
+            "observability",
+            "metrics",
+            "resources"
+          ]
+        },
+        {
+          "name": "bng_device_hosts_stats",
+          "description": "Return peak and current IPv4/IPv6 subscriber host counts for a BNG device using instant queries on `state_subscriber_mgmt_statistics_total_hosts_peak_value` and `state_subscriber_mgmt_statistics_total_hosts_current_value`.",
+          "tags": [
+            "metrics",
+            "subscriber-mgmt",
+            "resources"
+          ]
+        }
+      ],
+      "resource_template": [
+        {
+          "name": "bng://targets/devices/{namespace}",
+          "description": "NetworkDeviceTarget CRs filtered by Kubernetes namespace",
+          "tags": [
+            "targets",
+            "discovery"
+          ]
+        },
+        {
+          "name": "bng://targets/hosts/{namespace}",
+          "description": "NetworkHostTarget CRs filtered by Kubernetes namespace",
+          "tags": [
+            "targets",
+            "discovery"
+          ]
+        }
+      ],
+      "prompt": [
+        {
+          "name": "bng-overview",
+          "description": "Session bootstrap prompt — returns the BNG controller manifest and grouped capability summary so the LLM knows what is available",
+          "tags": [
+            "manifest",
+            "discovery"
+          ]
+        }
+      ]
+    }
+  }
+]

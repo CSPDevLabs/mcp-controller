@@ -1,0 +1,614 @@
+[
+  {
+    "args": {
+      "device": "clab-sros-bngt-bng1",
+      "interval": "1h",
+      "step": "1m",
+      "start_time": ""
+    },
+    "response_type": "DeviceCpuUsageResult",
+    "mock_data": {
+      "device": "nok-bng/clab-sros-bngt-bng1",
+      "interval": "1h",
+      "step": "1m",
+      "sample_count": 0,
+      "avg_cpu_usage": null,
+      "min_cpu_usage": null,
+      "max_cpu_usage": null,
+      "p80_cpu_usage": null,
+      "p95_cpu_usage": null,
+      "p98_cpu_usage": null,
+      "result": {
+        "query": "state_system_cpu_summary_usage_cpu_usage{cpu_sample_period=\"60\",source=\"nok-bng/clab-sros-bngt-bng1\"}",
+        "result_type": "matrix",
+        "series": []
+      }
+    }
+  },
+  {
+    "args": {
+      "device": "clab-sros-bngt-bng2",
+      "interval": "1h",
+      "step": "1m",
+      "start_time": ""
+    },
+    "response_type": "DeviceCpuUsageResult",
+    "mock_data": {
+      "device": "nok-bng/clab-sros-bngt-bng2",
+      "interval": "1h",
+      "step": "1m",
+      "sample_count": 122,
+      "avg_cpu_usage": 26.565983606557378,
+      "min_cpu_usage": 18.9,
+      "max_cpu_usage": 30.24,
+      "p80_cpu_usage": 28.458,
+      "p95_cpu_usage": 29.258,
+      "p98_cpu_usage": 30.172600000000003,
+      "result": {
+        "query": "state_system_cpu_summary_usage_cpu_usage{cpu_sample_period=\"60\",source=\"nok-bng/clab-sros-bngt-bng2\"}",
+        "result_type": "matrix",
+        "series": [
+          {
+            "labels": {
+              "__name__": "state_system_cpu_summary_usage_cpu_usage",
+              "cpu_sample_period": "60",
+              "endpoint": "metrics",
+              "instance": "10.244.0.48:10332",
+              "job": "gnmic-bng-metrics-prom-bng-tel-prom-output",
+              "namespace": "nok-bng",
+              "pod": "gnmic-bng-metrics-0",
+              "service": "gnmic-bng-metrics-prom-bng-tel-prom-output",
+              "source": "nok-bng/clab-sros-bngt-bng2",
+              "subscription_name": "nok-bng/sros-system-performance"
+            },
+            "samples": [
+              {
+                "timestamp": 1776373395.856,
+                "value": 27.38
+              },
+              {
+                "timestamp": 1776373455.856,
+                "value": 27.81
+              },
+              {
+                "timestamp": 1776373515.856,
+                "value": 26.07
+              },
+              {
+                "timestamp": 1776373575.856,
+                "value": 24.78
+              },
+              {
+                "timestamp": 1776373635.856,
+                "value": 25.42
+              },
+              {
+                "timestamp": 1776373695.856,
+                "value": 26.18
+              },
+              {
+                "timestamp": 1776373755.856,
+                "value": 29.08
+              },
+              {
+                "timestamp": 1776373815.856,
+                "value": 27.42
+              },
+              {
+                "timestamp": 1776373875.856,
+                "value": 29.4
+              },
+              {
+                "timestamp": 1776373935.856,
+                "value": 27.9
+              },
+              {
+                "timestamp": 1776373995.856,
+                "value": 28.55
+              },
+              {
+                "timestamp": 1776374055.856,
+                "value": 27.0
+              },
+              {
+                "timestamp": 1776374115.856,
+                "value": 28.31
+              },
+              {
+                "timestamp": 1776374175.856,
+                "value": 27.41
+              },
+              {
+                "timestamp": 1776374235.856,
+                "value": 29.33
+              },
+              {
+                "timestamp": 1776374295.856,
+                "value": 28.74
+              },
+              {
+                "timestamp": 1776374355.856,
+                "value": 27.31
+              },
+              {
+                "timestamp": 1776374415.856,
+                "value": 27.62
+              },
+              {
+                "timestamp": 1776374475.856,
+                "value": 30.24
+              },
+              {
+                "timestamp": 1776374535.856,
+                "value": 29.5
+              },
+              {
+                "timestamp": 1776374595.856,
+                "value": 28.35
+              },
+              {
+                "timestamp": 1776374655.856,
+                "value": 29.66
+              },
+              {
+                "timestamp": 1776374715.856,
+                "value": 25.19
+              },
+              {
+                "timestamp": 1776374775.856,
+                "value": 27.92
+              },
+              {
+                "timestamp": 1776374835.856,
+                "value": 28.55
+              },
+              {
+                "timestamp": 1776374895.856,
+                "value": 27.31
+              },
+              {
+                "timestamp": 1776374955.856,
+                "value": 26.68
+              },
+              {
+                "timestamp": 1776375015.856,
+                "value": 28.78
+              },
+              {
+                "timestamp": 1776375075.856,
+                "value": 28.34
+              },
+              {
+                "timestamp": 1776375135.856,
+                "value": 27.74
+              },
+              {
+                "timestamp": 1776375195.856,
+                "value": 27.04
+              },
+              {
+                "timestamp": 1776375255.856,
+                "value": 27.26
+              },
+              {
+                "timestamp": 1776375315.856,
+                "value": 28.82
+              },
+              {
+                "timestamp": 1776375375.856,
+                "value": 25.35
+              },
+              {
+                "timestamp": 1776375435.856,
+                "value": 28.75
+              },
+              {
+                "timestamp": 1776375495.856,
+                "value": 26.91
+              },
+              {
+                "timestamp": 1776375555.856,
+                "value": 22.06
+              },
+              {
+                "timestamp": 1776375615.856,
+                "value": 23.62
+              },
+              {
+                "timestamp": 1776375675.856,
+                "value": 25.97
+              },
+              {
+                "timestamp": 1776375735.856,
+                "value": 21.91
+              },
+              {
+                "timestamp": 1776375795.856,
+                "value": 29.42
+              },
+              {
+                "timestamp": 1776375855.856,
+                "value": 27.1
+              },
+              {
+                "timestamp": 1776375915.856,
+                "value": 27.61
+              },
+              {
+                "timestamp": 1776375975.856,
+                "value": 29.29
+              },
+              {
+                "timestamp": 1776376035.856,
+                "value": 24.34
+              },
+              {
+                "timestamp": 1776376095.856,
+                "value": 26.61
+              },
+              {
+                "timestamp": 1776376155.856,
+                "value": 24.57
+              },
+              {
+                "timestamp": 1776376215.856,
+                "value": 23.71
+              },
+              {
+                "timestamp": 1776376275.856,
+                "value": 25.58
+              },
+              {
+                "timestamp": 1776376335.856,
+                "value": 19.7
+              },
+              {
+                "timestamp": 1776376395.856,
+                "value": 26.85
+              },
+              {
+                "timestamp": 1776376455.856,
+                "value": 27.64
+              },
+              {
+                "timestamp": 1776376515.856,
+                "value": 26.11
+              },
+              {
+                "timestamp": 1776376575.856,
+                "value": 27.38
+              },
+              {
+                "timestamp": 1776376635.856,
+                "value": 23.83
+              },
+              {
+                "timestamp": 1776376695.856,
+                "value": 23.41
+              },
+              {
+                "timestamp": 1776376755.856,
+                "value": 19.89
+              },
+              {
+                "timestamp": 1776376815.856,
+                "value": 21.79
+              },
+              {
+                "timestamp": 1776376875.856,
+                "value": 23.12
+              },
+              {
+                "timestamp": 1776376935.856,
+                "value": 27.65
+              },
+              {
+                "timestamp": 1776376995.856,
+                "value": 24.03
+              }
+            ]
+          },
+          {
+            "labels": {
+              "__name__": "state_system_cpu_summary_usage_cpu_usage",
+              "cpu_sample_period": "60",
+              "endpoint": "metrics",
+              "instance": "10.244.0.48:10686",
+              "job": "gnmic-bng-metrics-prom-bng-ext-tel-prom-output",
+              "namespace": "nok-bng",
+              "pod": "gnmic-bng-metrics-0",
+              "service": "gnmic-bng-metrics-prom-bng-ext-tel-prom-output",
+              "source": "nok-bng/clab-sros-bngt-bng2",
+              "subscription_name": "nok-bng/sros-system-performance"
+            },
+            "samples": [
+              {
+                "timestamp": 1776373395.856,
+                "value": 27.42
+              },
+              {
+                "timestamp": 1776373455.856,
+                "value": 26.43
+              },
+              {
+                "timestamp": 1776373515.856,
+                "value": 26.47
+              },
+              {
+                "timestamp": 1776373575.856,
+                "value": 24.36
+              },
+              {
+                "timestamp": 1776373635.856,
+                "value": 26.43
+              },
+              {
+                "timestamp": 1776373695.856,
+                "value": 25.75
+              },
+              {
+                "timestamp": 1776373755.856,
+                "value": 28.84
+              },
+              {
+                "timestamp": 1776373815.856,
+                "value": 27.85
+              },
+              {
+                "timestamp": 1776373875.856,
+                "value": 29.88
+              },
+              {
+                "timestamp": 1776373935.856,
+                "value": 28.22
+              },
+              {
+                "timestamp": 1776373995.856,
+                "value": 27.61
+              },
+              {
+                "timestamp": 1776374055.856,
+                "value": 26.56
+              },
+              {
+                "timestamp": 1776374115.856,
+                "value": 29.25
+              },
+              {
+                "timestamp": 1776374175.856,
+                "value": 27.69
+              },
+              {
+                "timestamp": 1776374235.856,
+                "value": 29.1
+              },
+              {
+                "timestamp": 1776374295.856,
+                "value": 28.88
+              },
+              {
+                "timestamp": 1776374355.856,
+                "value": 25.94
+              },
+              {
+                "timestamp": 1776374415.856,
+                "value": 29.23
+              },
+              {
+                "timestamp": 1776374475.856,
+                "value": 29.38
+              },
+              {
+                "timestamp": 1776374535.856,
+                "value": 29.64
+              },
+              {
+                "timestamp": 1776374595.856,
+                "value": 28.42
+              },
+              {
+                "timestamp": 1776374655.856,
+                "value": 28.73
+              },
+              {
+                "timestamp": 1776374715.856,
+                "value": 25.25
+              },
+              {
+                "timestamp": 1776374775.856,
+                "value": 27.93
+              },
+              {
+                "timestamp": 1776374835.856,
+                "value": 29.21
+              },
+              {
+                "timestamp": 1776374895.856,
+                "value": 27.45
+              },
+              {
+                "timestamp": 1776374955.856,
+                "value": 26.12
+              },
+              {
+                "timestamp": 1776375015.856,
+                "value": 29.36
+              },
+              {
+                "timestamp": 1776375075.856,
+                "value": 28.53
+              },
+              {
+                "timestamp": 1776375135.856,
+                "value": 27.5
+              },
+              {
+                "timestamp": 1776375195.856,
+                "value": 27.3
+              },
+              {
+                "timestamp": 1776375255.856,
+                "value": 26.84
+              },
+              {
+                "timestamp": 1776375315.856,
+                "value": 28.78
+              },
+              {
+                "timestamp": 1776375375.856,
+                "value": 25.54
+              },
+              {
+                "timestamp": 1776375435.856,
+                "value": 28.25
+              },
+              {
+                "timestamp": 1776375495.856,
+                "value": 24.79
+              },
+              {
+                "timestamp": 1776375555.856,
+                "value": 22.52
+              },
+              {
+                "timestamp": 1776375615.856,
+                "value": 24.44
+              },
+              {
+                "timestamp": 1776375675.856,
+                "value": 25.15
+              },
+              {
+                "timestamp": 1776375735.856,
+                "value": 22.37
+              },
+              {
+                "timestamp": 1776375795.856,
+                "value": 29.27
+              },
+              {
+                "timestamp": 1776375855.856,
+                "value": 27.55
+              },
+              {
+                "timestamp": 1776375915.856,
+                "value": 28.15
+              },
+              {
+                "timestamp": 1776375975.856,
+                "value": 28.61
+              },
+              {
+                "timestamp": 1776376035.856,
+                "value": 24.7
+              },
+              {
+                "timestamp": 1776376095.856,
+                "value": 26.77
+              },
+              {
+                "timestamp": 1776376155.856,
+                "value": 21.68
+              },
+              {
+                "timestamp": 1776376215.856,
+                "value": 27.27
+              },
+              {
+                "timestamp": 1776376275.856,
+                "value": 25.83
+              },
+              {
+                "timestamp": 1776376335.856,
+                "value": 18.9
+              },
+              {
+                "timestamp": 1776376395.856,
+                "value": 27.23
+              },
+              {
+                "timestamp": 1776376455.856,
+                "value": 26.35
+              },
+              {
+                "timestamp": 1776376515.856,
+                "value": 26.74
+              },
+              {
+                "timestamp": 1776376575.856,
+                "value": 26.76
+              },
+              {
+                "timestamp": 1776376635.856,
+                "value": 23.15
+              },
+              {
+                "timestamp": 1776376695.856,
+                "value": 24.68
+              },
+              {
+                "timestamp": 1776376755.856,
+                "value": 18.93
+              },
+              {
+                "timestamp": 1776376815.856,
+                "value": 21.48
+              },
+              {
+                "timestamp": 1776376875.856,
+                "value": 25.09
+              },
+              {
+                "timestamp": 1776376935.856,
+                "value": 26.89
+              },
+              {
+                "timestamp": 1776376995.856,
+                "value": 24.32
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "args": {
+      "device": "clab-sros-bngt-bng3",
+      "interval": "1h",
+      "step": "1m",
+      "start_time": ""
+    },
+    "response_type": "ErrorResponse",
+    "mock_data": {
+      "error": "ErrorResponse",
+      "detail": "{\n  \"error\": \"device_not_found\",\n  \"detail\": \"NetworkDeviceTarget 'clab-sros-bngt-bng3' not found in namespace 'nok-bng'\",\n  \"device\": \"nok-bng/clab-sros-bngt-bng3\"\n}"
+    }
+  },
+  {
+    "args": {
+      "device": "clab-sros-bngt-bng3",
+      "interval": "1g",
+      "step": "1m",
+      "start_time": ""
+    },
+    "response_type": "ErrorResponse",
+    "mock_data": {
+      "error": "ErrorResponse",
+      "detail": "{\n  \"error\": \"device_not_found\",\n  \"detail\": \"NetworkDeviceTarget 'clab-sros-bngt-bng3' not found in namespace 'nok-bng'\",\n  \"device\": \"nok-bng/clab-sros-bngt-bng3\"\n}"
+    }
+  },
+  {
+    "args": {
+      "device": "clab-sros-bngt-bng2",
+      "interval": "1g",
+      "step": "1m",
+      "start_time": ""
+    },
+    "response_type": "ErrorResponse",
+    "mock_data": {
+      "error": "ErrorResponse",
+      "detail": "{\n  \"error\": \"invalid_interval\",\n  \"detail\": \"Cannot parse interval '1g'\",\n  \"device\": \"nok-bng/clab-sros-bngt-bng2\",\n  \"interval\": \"1g\"\n}"
+    }
+  }
+]

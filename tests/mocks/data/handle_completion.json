@@ -1,0 +1,418 @@
+[
+  {
+    "args": {
+      "ref": {
+        "type": "ref/resource",
+        "uri": "bng://targets/devices/{namespace}"
+      },
+      "argument": {
+        "name": "namespace",
+        "value": "nok-bbm"
+      }
+    },
+    "response_type": "Completion",
+    "mock_data": {
+      "values": [
+        "nok-bbm"
+      ],
+      "total": 11,
+      "hasMore": false
+    }
+  },
+  {
+    "args": {
+      "ref": {
+        "type": "ref/resource",
+        "uri": "bng://targets/devices/{namespace}"
+      },
+      "argument": {
+        "name": "namespace",
+        "value": "n"
+      }
+    },
+    "response_type": "Completion",
+    "mock_data": {
+      "values": [
+        "nok-base",
+        "nok-bbm",
+        "nok-bng",
+        "nok-git"
+      ],
+      "total": 11,
+      "hasMore": false
+    }
+  },
+  {
+    "args": {
+      "ref": {
+        "type": "ref/resource",
+        "uri": "bng://targets/devices/{namespace}"
+      },
+      "argument": {
+        "name": "namespace",
+        "value": "no"
+      }
+    },
+    "response_type": "Completion",
+    "mock_data": {
+      "values": [
+        "nok-base",
+        "nok-bbm",
+        "nok-bng",
+        "nok-git"
+      ],
+      "total": 11,
+      "hasMore": false
+    }
+  },
+  {
+    "args": {
+      "ref": {
+        "type": "ref/resource",
+        "uri": "bng://targets/hosts/{namespace}"
+      },
+      "argument": {
+        "name": "namespace",
+        "value": "nok-bng"
+      }
+    },
+    "response_type": "Completion",
+    "mock_data": {
+      "values": [
+        "nok-bng"
+      ],
+      "total": 11,
+      "hasMore": false
+    }
+  },
+  {
+    "args": {
+      "ref": {
+        "type": "ref/resource",
+        "uri": "bng://targets/hosts/{namespace}"
+      },
+      "argument": {
+        "name": "namespace",
+        "value": "nok"
+      }
+    },
+    "response_type": "Completion",
+    "mock_data": {
+      "values": [
+        "nok-base",
+        "nok-bbm",
+        "nok-bng",
+        "nok-git"
+      ],
+      "total": 11,
+      "hasMore": false
+    }
+  },
+  {
+    "args": {
+      "ref": {
+        "type": "ref/resource",
+        "uri": "bng://targets/hosts/{namespace}"
+      },
+      "argument": {
+        "name": "namespace",
+        "value": "nok-"
+      }
+    },
+    "response_type": "Completion",
+    "mock_data": {
+      "values": [
+        "nok-base",
+        "nok-bbm",
+        "nok-bng",
+        "nok-git"
+      ],
+      "total": 11,
+      "hasMore": false
+    }
+  },
+  {
+    "args": {
+      "ref": {
+        "type": "ref/resource",
+        "uri": "bng://targets/hosts/{namespace}"
+      },
+      "argument": {
+        "name": "namespace",
+        "value": "nok-base"
+      }
+    },
+    "response_type": "Completion",
+    "mock_data": {
+      "values": [
+        "nok-base"
+      ],
+      "total": 11,
+      "hasMore": false
+    }
+  },
+  {
+    "args": {
+      "ref": {
+        "type": "ref/resource",
+        "uri": "bng://targets/hosts/{namespace}"
+      },
+      "argument": {
+        "name": "namespace",
+        "value": "e"
+      }
+    },
+    "response_type": "Completion",
+    "mock_data": {
+      "values": [],
+      "total": 11,
+      "hasMore": false
+    }
+  },
+  {
+    "args": {
+      "ref": {
+        "type": "ref/resource",
+        "uri": "bng://targets/hosts/{namespace}"
+      },
+      "argument": {
+        "name": "namespace",
+        "value": "er"
+      }
+    },
+    "response_type": "Completion",
+    "mock_data": {
+      "values": [],
+      "total": 11,
+      "hasMore": false
+    }
+  },
+  {
+    "args": {
+      "ref": {
+        "type": "ref/resource",
+        "uri": "bng://targets/hosts/{namespace}"
+      },
+      "argument": {
+        "name": "namespace",
+        "value": "err"
+      }
+    },
+    "response_type": "Completion",
+    "mock_data": {
+      "values": [],
+      "total": 11,
+      "hasMore": false
+    }
+  },
+  {
+    "args": {
+      "ref": {
+        "type": "ref/resource",
+        "uri": "bng://targets/hosts/{namespace}"
+      },
+      "argument": {
+        "name": "namespace",
+        "value": "erroo"
+      }
+    },
+    "response_type": "Completion",
+    "mock_data": {
+      "values": [],
+      "total": 11,
+      "hasMore": false
+    }
+  },
+  {
+    "args": {
+      "ref": {
+        "type": "ref/resource",
+        "uri": "bng://targets/hosts/{namespace}"
+      },
+      "argument": {
+        "name": "namespace",
+        "value": "erro"
+      }
+    },
+    "response_type": "Completion",
+    "mock_data": {
+      "values": [],
+      "total": 11,
+      "hasMore": false
+    }
+  },
+  {
+    "args": {
+      "ref": {
+        "type": "ref/resource",
+        "uri": "bng://targets/hosts/{namespace}"
+      },
+      "argument": {
+        "name": "namespace",
+        "value": "error"
+      }
+    },
+    "response_type": "Completion",
+    "mock_data": {
+      "values": [],
+      "total": 11,
+      "hasMore": false
+    }
+  },
+  {
+    "args": {
+      "ref": {
+        "type": "ref/resource",
+        "uri": "bng://targets/devices/{namespace}"
+      },
+      "argument": {
+        "name": "namespace",
+        "value": "nok"
+      }
+    },
+    "response_type": "Completion",
+    "mock_data": {
+      "values": [
+        "nok-base",
+        "nok-bbm",
+        "nok-bng",
+        "nok-git"
+      ],
+      "total": 11,
+      "hasMore": false
+    }
+  },
+  {
+    "args": {
+      "ref": {
+        "type": "ref/resource",
+        "uri": "bng://targets/devices/{namespace}"
+      },
+      "argument": {
+        "name": "namespace",
+        "value": "nok-"
+      }
+    },
+    "response_type": "Completion",
+    "mock_data": {
+      "values": [
+        "nok-base",
+        "nok-bbm",
+        "nok-bng",
+        "nok-git"
+      ],
+      "total": 11,
+      "hasMore": false
+    }
+  },
+  {
+    "args": {
+      "ref": {
+        "type": "ref/resource",
+        "uri": "bng://targets/devices/{namespace}"
+      },
+      "argument": {
+        "name": "namespace",
+        "value": "nok-bnhg"
+      }
+    },
+    "response_type": "Completion",
+    "mock_data": {
+      "values": [],
+      "total": 11,
+      "hasMore": false
+    }
+  },
+  {
+    "args": {
+      "ref": {
+        "type": "ref/resource",
+        "uri": "bng://targets/devices/{namespace}"
+      },
+      "argument": {
+        "name": "namespace",
+        "value": "nok-bng"
+      }
+    },
+    "response_type": "Completion",
+    "mock_data": {
+      "values": [
+        "nok-bng"
+      ],
+      "total": 11,
+      "hasMore": false
+    }
+  },
+  {
+    "args": {
+      "ref": {
+        "type": "ref/resource",
+        "uri": "bng://targets/devices/{namespace}"
+      },
+      "argument": {
+        "name": "namespace",
+        "value": "e"
+      }
+    },
+    "response_type": "Completion",
+    "mock_data": {
+      "values": [],
+      "total": 11,
+      "hasMore": false
+    }
+  },
+  {
+    "args": {
+      "ref": {
+        "type": "ref/resource",
+        "uri": "bng://targets/devices/{namespace}"
+      },
+      "argument": {
+        "name": "namespace",
+        "value": "errorns"
+      }
+    },
+    "response_type": "Completion",
+    "mock_data": {
+      "values": [],
+      "total": 11,
+      "hasMore": false
+    }
+  },
+  {
+    "args": {
+      "ref": {
+        "type": "ref/resource",
+        "uri": "bng://targets/devices/{namespace}"
+      },
+      "argument": {
+        "name": "namespace",
+        "value": "er"
+      }
+    },
+    "response_type": "Completion",
+    "mock_data": {
+      "values": [],
+      "total": 11,
+      "hasMore": false
+    }
+  },
+  {
+    "args": {
+      "ref": {
+        "type": "ref/resource",
+        "uri": "bng://targets/devices/{namespace}"
+      },
+      "argument": {
+        "name": "namespace",
+        "value": "error"
+      }
+    },
+    "response_type": "Completion",
+    "mock_data": {
+      "values": [],
+      "total": 11,
+      "hasMore": false
+    }
+  }
+]

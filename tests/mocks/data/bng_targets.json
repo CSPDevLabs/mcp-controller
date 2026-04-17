@@ -1,0 +1,7 @@
+[
+  {
+    "args": {},
+    "response_type": "str",
+    "mock_data": "[\n  {\n    \"name\": \"clab-sros-bngt-agg\",\n    \"address\": \"172.21.20.21\",\n    \"hostname\": \"clab-sros-bngt-agg\",\n    \"kind\": \"NetworkDeviceTarget\",\n    \"namespace\": \"nok-bng\"\n  },\n  {\n    \"name\": \"clab-sros-bngt-bng1\",\n    \"address\": \"172.21.20.11\",\n    \"hostname\": \"clab-sros-bngt-bng1\",\n    \"kind\": \"NetworkDeviceTarget\",\n    \"namespace\": \"nok-bng\"\n  },\n  {\n    \"name\": \"clab-sros-bngt-bng2\",\n    \"address\": \"172.21.20.12\",\n    \"hostname\": \"clab-sros-bngt-bng2\",\n    \"kind\": \"NetworkDeviceTarget\",\n    \"namespace\": \"nok-bng\"\n  },\n  {\n    \"name\": \"clab-sros-bngt-core\",\n    \"address\": \"172.21.20.22\",\n    \"hostname\": \"clab-sros-bngt-core\",\n    \"kind\": \"NetworkDeviceTarget\",\n    \"namespace\": \"nok-bng\"\n  },\n  {\n    \"name\": \"clab-sros-bngt-bngblaster\",\n    \"address\": \"172.21.20.112\",\n    \"hostname\": \"clab-sros-bngt-bngblaster\",\n    \"kind\": \"NetworkHostTarget\",\n    \"namespace\": \"nok-bng\"\n  },\n  {\n    \"name\": \"clab-sros-bngt-radius\",\n    \"address\": \"172.21.20.111\",\n    \"hostname\": \"clab-sros-bngt-radius\",\n    \"kind\": \"NetworkHostTarget\",\n    \"namespace\": \"nok-bng\"\n  }\n]"
+  }
+]

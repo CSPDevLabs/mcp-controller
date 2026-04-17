@@ -1,0 +1,61 @@
+[
+  {
+    "apiVersion": "nok.dev/v1alpha1",
+    "kind": "NetworkDeviceTarget",
+    "metadata": {
+      "name": "bng1",
+      "namespace": "nok",
+      "labels": {"role": "bng", "env": "prod"},
+      "annotations": {},
+      "uid": "aaaa-bbbb-cccc-0001",
+      "resourceVersion": "100",
+      "creationTimestamp": "2025-01-15T10:00:00Z"
+    },
+    "spec": {
+      "address": "10.0.0.1",
+      "hostname": "bng1.lab.nok.dev",
+      "commonLabels": {"role": "bng"},
+      "gnmic": {
+        "enabled": true,
+        "credentialsSecretRef": "gnmic-creds",
+        "port": "57400"
+      },
+      "sdcio": {
+        "enabled": true,
+        "credentialsSecretRef": "sdcio-creds",
+        "schema": {"provider": "srl", "version": "24.10.1"}
+      }
+    },
+    "status": {
+      "reachability": "Reachable",
+      "lastProbeTime": "2025-06-01T12:00:00Z"
+    }
+  },
+  {
+    "apiVersion": "nok.dev/v1alpha1",
+    "kind": "NetworkDeviceTarget",
+    "metadata": {
+      "name": "bng2",
+      "namespace": "nok",
+      "labels": {"role": "bng", "env": "prod"},
+      "annotations": {},
+      "uid": "aaaa-bbbb-cccc-0002",
+      "resourceVersion": "101",
+      "creationTimestamp": "2025-01-15T10:01:00Z"
+    },
+    "spec": {
+      "address": "10.0.0.2",
+      "hostname": "bng2.lab.nok.dev",
+      "commonLabels": {"role": "bng"},
+      "gnmic": {
+        "enabled": true,
+        "credentialsSecretRef": "gnmic-creds",
+        "port": "57400"
+      }
+    },
+    "status": {
+      "reachability": "Unreachable",
+      "lastProbeTime": "2025-06-01T11:55:00Z"
+    }
+  }
+]

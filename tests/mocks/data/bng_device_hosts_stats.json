@@ -1,0 +1,38 @@
+[
+  {
+    "args": {
+      "device": "clab-sros-bngt-bng1"
+    },
+    "response_type": "DeviceHostsStatsResult",
+    "mock_data": {
+      "device": "nok-bng/clab-sros-bngt-bng1",
+      "ipv4_peak": 10,
+      "ipv6_peak": 20,
+      "ipv4_current": 10,
+      "ipv6_current": 20
+    }
+  },
+  {
+    "args": {
+      "device": "clab-sros-bngt-bng2"
+    },
+    "response_type": "DeviceHostsStatsResult",
+    "mock_data": {
+      "device": "nok-bng/clab-sros-bngt-bng2",
+      "ipv4_peak": 10,
+      "ipv6_peak": 20,
+      "ipv4_current": 10,
+      "ipv6_current": 20
+    }
+  },
+  {
+    "args": {
+      "device": "clab-sros-bngt-bng3"
+    },
+    "response_type": "ErrorResponse",
+    "mock_data": {
+      "error": "ErrorResponse",
+      "detail": "{\n  \"error\": \"device_not_found\",\n  \"detail\": \"NetworkDeviceTarget 'clab-sros-bngt-bng3' not found in namespace 'nok-bng'\",\n  \"device\": \"nok-bng/clab-sros-bngt-bng3\"\n}"
+    }
+  }
+]

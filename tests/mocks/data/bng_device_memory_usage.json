@@ -1,0 +1,584 @@
+[
+  {
+    "args": {
+      "device": "clab-sros-bngt-bng1",
+      "interval": "1h",
+      "step": "1m",
+      "start_time": ""
+    },
+    "response_type": "DeviceMemoryUsageResult",
+    "mock_data": {
+      "device": "nok-bng/clab-sros-bngt-bng1",
+      "interval": "1h",
+      "step": "1m",
+      "sample_count": 61,
+      "avg_memory_usage_pct": 32.0453932007257,
+      "min_memory_usage_pct": 28.219396392712564,
+      "max_memory_usage_pct": 34.207245746179396,
+      "p80_memory_usage_pct": 32.77450018374402,
+      "p95_memory_usage_pct": 33.73601222301582,
+      "p98_memory_usage_pct": 34.01594021395034,
+      "result": {
+        "query": "sum by(source) (state_system_memory_pools_summary_total_in_use{source=\"nok-bng/clab-sros-bngt-bng1\"}) / on(source) (sum by(source) (state_system_memory_pools_summary_total_in_use{source=\"nok-bng/clab-sros-bngt-bng1\"}) + sum by(source) (state_system_memory_pools_summary_available_memory{source=\"nok-bng/clab-sros-bngt-bng1\"})) * 100",
+        "result_type": "matrix",
+        "series": [
+          {
+            "labels": {
+              "source": "nok-bng/clab-sros-bngt-bng1"
+            },
+            "samples": [
+              {
+                "timestamp": 1776258416.282,
+                "value": 31.628286473248117
+              },
+              {
+                "timestamp": 1776258476.282,
+                "value": 31.514279379365284
+              },
+              {
+                "timestamp": 1776258536.282,
+                "value": 31.554817296157022
+              },
+              {
+                "timestamp": 1776258596.282,
+                "value": 31.533294095893506
+              },
+              {
+                "timestamp": 1776258656.282,
+                "value": 31.50985598745562
+              },
+              {
+                "timestamp": 1776258716.282,
+                "value": 31.539689799494674
+              },
+              {
+                "timestamp": 1776258776.282,
+                "value": 31.519944605075782
+              },
+              {
+                "timestamp": 1776258836.282,
+                "value": 31.526228128789214
+              },
+              {
+                "timestamp": 1776258896.282,
+                "value": 31.747512656013814
+              },
+              {
+                "timestamp": 1776258956.282,
+                "value": 31.594933514867883
+              },
+              {
+                "timestamp": 1776259016.282,
+                "value": 31.709905305694196
+              },
+              {
+                "timestamp": 1776259076.282,
+                "value": 31.635620899303923
+              },
+              {
+                "timestamp": 1776259136.282,
+                "value": 31.742969875111342
+              },
+              {
+                "timestamp": 1776259196.282,
+                "value": 31.852636887555413
+              },
+              {
+                "timestamp": 1776259256.282,
+                "value": 31.742831149446527
+              },
+              {
+                "timestamp": 1776259316.282,
+                "value": 31.783864776301147
+              },
+              {
+                "timestamp": 1776259376.282,
+                "value": 31.737693714782
+              },
+              {
+                "timestamp": 1776259436.282,
+                "value": 31.72414002677659
+              },
+              {
+                "timestamp": 1776259496.282,
+                "value": 32.12176656552025
+              },
+              {
+                "timestamp": 1776259556.282,
+                "value": 31.89682410247208
+              },
+              {
+                "timestamp": 1776259616.282,
+                "value": 31.870538344779014
+              },
+              {
+                "timestamp": 1776259676.282,
+                "value": 31.893297023245275
+              },
+              {
+                "timestamp": 1776259736.282,
+                "value": 31.849240287339995
+              },
+              {
+                "timestamp": 1776259796.282,
+                "value": 31.809475012516298
+              },
+              {
+                "timestamp": 1776259856.282,
+                "value": 31.784900215936833
+              },
+              {
+                "timestamp": 1776259916.282,
+                "value": 31.953095120588088
+              },
+              {
+                "timestamp": 1776259976.282,
+                "value": 31.9618597104249
+              },
+              {
+                "timestamp": 1776260036.282,
+                "value": 32.07578067418137
+              },
+              {
+                "timestamp": 1776260096.282,
+                "value": 32.07261881404283
+              },
+              {
+                "timestamp": 1776260156.282,
+                "value": 32.12712616209682
+              },
+              {
+                "timestamp": 1776260216.282,
+                "value": 32.083030458616236
+              },
+              {
+                "timestamp": 1776260276.282,
+                "value": 32.038004410791736
+              },
+              {
+                "timestamp": 1776260336.282,
+                "value": 28.219396392712564
+              },
+              {
+                "timestamp": 1776260396.282,
+                "value": 33.88022670598209
+              },
+              {
+                "timestamp": 1776260456.282,
+                "value": 31.472622000427226
+              },
+              {
+                "timestamp": 1776260516.282,
+                "value": 31.657993878738676
+              },
+              {
+                "timestamp": 1776260576.282,
+                "value": 31.228018543538315
+              },
+              {
+                "timestamp": 1776260636.282,
+                "value": 30.98359329846849
+              },
+              {
+                "timestamp": 1776260696.282,
+                "value": 31.09342850007496
+              },
+              {
+                "timestamp": 1776260756.282,
+                "value": 31.353390137103414
+              },
+              {
+                "timestamp": 1776260816.282,
+                "value": 30.781740268238494
+              },
+              {
+                "timestamp": 1776260876.282,
+                "value": 31.209784398011763
+              },
+              {
+                "timestamp": 1776260936.282,
+                "value": 31.78133546792818
+              },
+              {
+                "timestamp": 1776260996.282,
+                "value": 31.72917993461073
+              },
+              {
+                "timestamp": 1776261056.282,
+                "value": 31.841787612376454
+              },
+              {
+                "timestamp": 1776261116.282,
+                "value": 32.84040035716327
+              },
+              {
+                "timestamp": 1776261176.282,
+                "value": 33.06013707518388
+              },
+              {
+                "timestamp": 1776261236.282,
+                "value": 32.754934818595636
+              },
+              {
+                "timestamp": 1776261296.282,
+                "value": 32.99902585041926
+              },
+              {
+                "timestamp": 1776261356.282,
+                "value": 32.70436294719331
+              },
+              {
+                "timestamp": 1776261416.282,
+                "value": 32.19359858470005
+              },
+              {
+                "timestamp": 1776261476.282,
+                "value": 32.15355160813902
+              },
+              {
+                "timestamp": 1776261536.282,
+                "value": 32.6005804250775
+              },
+              {
+                "timestamp": 1776261596.282,
+                "value": 32.816961984006696
+              },
+              {
+                "timestamp": 1776261656.282,
+                "value": 33.45782635797948
+              },
+              {
+                "timestamp": 1776261716.282,
+                "value": 34.207245746179396
+              },
+              {
+                "timestamp": 1776261776.282,
+                "value": 33.90581982694909
+              },
+              {
+                "timestamp": 1776261836.282,
+                "value": 33.710635082029874
+              },
+              {
+                "timestamp": 1776261896.282,
+                "value": 33.62708452540344
+              },
+              {
+                "timestamp": 1776261956.282,
+                "value": 33.69515205098319
+              },
+              {
+                "timestamp": 1776262016.282,
+                "value": 33.67310939216937
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "args": {
+      "device": "clab-sros-bngt-bng2",
+      "interval": "1h",
+      "step": "1m",
+      "start_time": ""
+    },
+    "response_type": "DeviceMemoryUsageResult",
+    "mock_data": {
+      "device": "nok-bng/clab-sros-bngt-bng2",
+      "interval": "1h",
+      "step": "1m",
+      "sample_count": 61,
+      "avg_memory_usage_pct": 32.03884576144914,
+      "min_memory_usage_pct": 28.172946342686046,
+      "max_memory_usage_pct": 34.100488100546485,
+      "p80_memory_usage_pct": 32.7742643757162,
+      "p95_memory_usage_pct": 33.735872170766484,
+      "p98_memory_usage_pct": 34.01753543194969,
+      "result": {
+        "query": "sum by(source) (state_system_memory_pools_summary_total_in_use{source=\"nok-bng/clab-sros-bngt-bng2\"}) / on(source) (sum by(source) (state_system_memory_pools_summary_total_in_use{source=\"nok-bng/clab-sros-bngt-bng2\"}) + sum by(source) (state_system_memory_pools_summary_available_memory{source=\"nok-bng/clab-sros-bngt-bng2\"})) * 100",
+        "result_type": "matrix",
+        "series": [
+          {
+            "labels": {
+              "source": "nok-bng/clab-sros-bngt-bng2"
+            },
+            "samples": [
+              {
+                "timestamp": 1776258419.068,
+                "value": 31.60745980131659
+              },
+              {
+                "timestamp": 1776258479.068,
+                "value": 31.531800026468787
+              },
+              {
+                "timestamp": 1776258539.068,
+                "value": 31.52964622693882
+              },
+              {
+                "timestamp": 1776258599.068,
+                "value": 31.559316413110295
+              },
+              {
+                "timestamp": 1776258659.068,
+                "value": 31.558047964045304
+              },
+              {
+                "timestamp": 1776258719.068,
+                "value": 31.596726557663217
+              },
+              {
+                "timestamp": 1776258779.068,
+                "value": 31.56743548726958
+              },
+              {
+                "timestamp": 1776258839.068,
+                "value": 31.580076430218273
+              },
+              {
+                "timestamp": 1776258899.068,
+                "value": 31.580618041439358
+              },
+              {
+                "timestamp": 1776258959.068,
+                "value": 31.71702442326142
+              },
+              {
+                "timestamp": 1776259019.068,
+                "value": 31.661556829460586
+              },
+              {
+                "timestamp": 1776259079.068,
+                "value": 31.575301931313614
+              },
+              {
+                "timestamp": 1776259139.068,
+                "value": 31.823425455374625
+              },
+              {
+                "timestamp": 1776259199.068,
+                "value": 31.823105464265733
+              },
+              {
+                "timestamp": 1776259259.068,
+                "value": 31.7870055503513
+              },
+              {
+                "timestamp": 1776259319.068,
+                "value": 31.736696030482037
+              },
+              {
+                "timestamp": 1776259379.068,
+                "value": 31.73194048919895
+              },
+              {
+                "timestamp": 1776259439.068,
+                "value": 31.78449654926732
+              },
+              {
+                "timestamp": 1776259499.068,
+                "value": 31.879643092149234
+              },
+              {
+                "timestamp": 1776259559.068,
+                "value": 31.879775901207157
+              },
+              {
+                "timestamp": 1776259619.068,
+                "value": 31.84228456644845
+              },
+              {
+                "timestamp": 1776259679.068,
+                "value": 31.84811432489778
+              },
+              {
+                "timestamp": 1776259739.068,
+                "value": 31.86443742705768
+              },
+              {
+                "timestamp": 1776259799.068,
+                "value": 31.813894843586755
+              },
+              {
+                "timestamp": 1776259859.068,
+                "value": 31.841782041899148
+              },
+              {
+                "timestamp": 1776259919.068,
+                "value": 31.949242274861422
+              },
+              {
+                "timestamp": 1776259979.068,
+                "value": 31.97693431651208
+              },
+              {
+                "timestamp": 1776260039.068,
+                "value": 31.984405518698882
+              },
+              {
+                "timestamp": 1776260099.068,
+                "value": 32.03002459905536
+              },
+              {
+                "timestamp": 1776260159.068,
+                "value": 32.09867318803488
+              },
+              {
+                "timestamp": 1776260219.068,
+                "value": 32.055135161773116
+              },
+              {
+                "timestamp": 1776260279.068,
+                "value": 32.074199813418964
+              },
+              {
+                "timestamp": 1776260339.068,
+                "value": 28.172946342686046
+              },
+              {
+                "timestamp": 1776260399.068,
+                "value": 32.98131629895603
+              },
+              {
+                "timestamp": 1776260459.068,
+                "value": 31.56331102582804
+              },
+              {
+                "timestamp": 1776260519.068,
+                "value": 31.430316213831162
+              },
+              {
+                "timestamp": 1776260579.068,
+                "value": 31.66457553298894
+              },
+              {
+                "timestamp": 1776260639.068,
+                "value": 29.996147800435885
+              },
+              {
+                "timestamp": 1776260699.068,
+                "value": 31.126740260958275
+              },
+              {
+                "timestamp": 1776260759.068,
+                "value": 31.630107654319396
+              },
+              {
+                "timestamp": 1776260819.068,
+                "value": 30.867302797725987
+              },
+              {
+                "timestamp": 1776260879.068,
+                "value": 30.908946577518098
+              },
+              {
+                "timestamp": 1776260939.068,
+                "value": 31.44364896282368
+              },
+              {
+                "timestamp": 1776260999.068,
+                "value": 31.787331620173788
+              },
+              {
+                "timestamp": 1776261059.068,
+                "value": 32.17379140061234
+              },
+              {
+                "timestamp": 1776261119.068,
+                "value": 32.70300402036463
+              },
+              {
+                "timestamp": 1776261179.068,
+                "value": 32.9470725918777
+              },
+              {
+                "timestamp": 1776261239.068,
+                "value": 32.840554294702564
+              },
+              {
+                "timestamp": 1776261299.068,
+                "value": 32.91128417267759
+              },
+              {
+                "timestamp": 1776261359.068,
+                "value": 32.75769189596961
+              },
+              {
+                "timestamp": 1776261419.068,
+                "value": 32.214685532762864
+              },
+              {
+                "timestamp": 1776261479.068,
+                "value": 32.87188164523401
+              },
+              {
+                "timestamp": 1776261539.068,
+                "value": 32.651550322704914
+              },
+              {
+                "timestamp": 1776261599.068,
+                "value": 33.22492008944822
+              },
+              {
+                "timestamp": 1776261659.068,
+                "value": 34.05219273887392
+              },
+              {
+                "timestamp": 1776261719.068,
+                "value": 34.100488100546485
+              },
+              {
+                "timestamp": 1776261779.068,
+                "value": 33.85965214485041
+              },
+              {
+                "timestamp": 1776261839.068,
+                "value": 33.55330532853966
+              },
+              {
+                "timestamp": 1776261899.068,
+                "value": 33.72935743528838
+              },
+              {
+                "timestamp": 1776261959.068,
+                "value": 33.64450263383961
+              },
+              {
+                "timestamp": 1776262019.068,
+                "value": 33.67073927081248
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "args": {
+      "device": "clab-sros-bngt-bng3",
+      "interval": "1h",
+      "step": "1m",
+      "start_time": ""
+    },
+    "response_type": "ErrorResponse",
+    "mock_data": {
+      "error": "ErrorResponse",
+      "detail": "{\n  \"error\": \"device_not_found\",\n  \"detail\": \"NetworkDeviceTarget 'clab-sros-bngt-bng3' not found in namespace 'nok-bng'\",\n  \"device\": \"nok-bng/clab-sros-bngt-bng3\"\n}"
+    }
+  },
+  {
+    "args": {
+      "device": "clab-sros-bngt-bng2",
+      "interval": "1g",
+      "step": "1m",
+      "start_time": ""
+    },
+    "response_type": "ErrorResponse",
+    "mock_data": {
+      "error": "ErrorResponse",
+      "detail": "{\n  \"error\": \"invalid_interval\",\n  \"detail\": \"Cannot parse interval '1g'\",\n  \"device\": \"nok-bng/clab-sros-bngt-bng2\",\n  \"interval\": \"1g\"\n}"
+    }
+  }
+]

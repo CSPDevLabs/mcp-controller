@@ -1,0 +1,72 @@
+[build-system]
+# hatchling is uv's default build backend; required for `uv sync --no-editable`
+# to produce a proper wheel installable into the venv (not an editable .pth pointer).
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+# The project uses a src/ layout, so hatchling must be told where to find the package.
+packages = ["src/mcp_controller"]
+
+[project]
+name = "mcp-controller"
+version = "0.1.0"
+description = "MCP Controller"
+requires-python = ">=3.12"
+dependencies = [
+    "mcp>=1.26.0",
+    "httpx>=0.28.1",
+    "pydantic>=2.12.5",
+    "pydantic-settings>=2.13.1",
+    "pyyaml>=6.0.3",
+    # Async Python client for the Kubernetes API; version number tracks the K8s minor version
+    # (e.g. 33.x = K8s 1.33). Pinned to >=33.3.0 to match the local kind cluster version.
+    # Used by KubernetesClient to read nok.dev CRDs via CustomObjectsApi.
+    "kubernetes-asyncio>=33.3.0",
+    "python-json-logger>=4.1.0",
+    "rich>=14.3.3",
+]
+
+[project.optional-dependencies]
+dev = [
+    "black",
+    "flake8",
+    "flake8-bugbear",
+    "pytest",
+    "pytest-cov",
+    "pytest-asyncio>=1.3.0",
+    "respx>=0.22.0",
+    # Code generator that converts OpenAPI/JSON Schema to Pydantic v2 models.
+    # Used by scripts/gen_k8s_types.py to produce k8s_types.py from CRD manifests.
+    "datamodel-code-generator>=0.27.0",
+    "ipython",
+]
+
+[tool.black]
+line-length = 100
+target-version = ["py312"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--cov=mcp_controller --cov-report=term-missing"
+asyncio_mode = "auto"
+
+[tool.coverage.run]
+source = ["mcp_controller"]
+
+[tool.pyright]
+# Decorator-registered MCP resource/tool functions appear unused to static analysis — suppress false positives.
+reportUnusedFunction = "none"
+
+[dependency-groups]
+dev = [
+    "ipython>=9.12.0",
+]
+
+[tool.coverage.report]
+fail_under = 80
+show_missing = true
+exclude_lines = [
+    "if __name__ == .__main__.",
+    "pragma: no cover",
+]

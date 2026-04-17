@@ -1,0 +1,10 @@
+[
+  {
+    "args": {},
+    "response_type": "NotImplementedError",
+    "mock_data": {
+      "error": "NotImplementedError",
+      "detail": "bng://health/summary is not yet implemented"
+    }
+  }
+]
