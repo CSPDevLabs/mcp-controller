@@ -25,7 +25,7 @@ TEST_NAMESPACE = "test-ns"
 @pytest.fixture(autouse=True)
 def _bypass_device_verification():
     """Bypass K8s device verification — metric tool tests focus on Prometheus behaviour."""
-    with patch("mcp_controller.bng.tools.verify_device_target", new_callable=AsyncMock):
+    with patch("mcp_controller.bng.common.verify_device_target", new_callable=AsyncMock):
         yield
 
 
