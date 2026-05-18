@@ -2,7 +2,6 @@
 
 import logging
 import sys
-from datetime import datetime, timezone
 
 from mcp.server.fastmcp import FastMCP
 from mcp.server.fastmcp.exceptions import ResourceError
@@ -14,10 +13,8 @@ from mcp_controller.bng.common import (
     compute_sample_stats,
     execute_instant_query,
     execute_range_query,
-    parse_duration,
-    parse_start_time,
-    resolve_device_source,
-    verify_device_target,
+    prepare_device,
+    resolve_query_window,
 )
 from mcp_controller.bng.resources import BNG_MANIFEST
 from mcp_controller.bng.types import (
@@ -25,6 +22,16 @@ from mcp_controller.bng.types import (
     DeviceHostsStatsResult,
     DeviceMemoryUsageResult,
     DeviceUnavailabilityResult,
+    PolicerDirection,
+    PolicersAllocatedResult,
+    PolicersAllocationBySlot,
+    PppSessionsTotalEstablishedResult,
+    QueuesAllocatedResult,
+    QueuesAllocationBySlot,
+    QueuesDirection,
+    SapAllocationBySlot,
+    SapInstancesAllocatedResult,
+    SubscriberNextHopEntriesResult,
     TargetSummary,
 )
 from mcp_controller.core.types import ErrorResponse
@@ -227,7 +234,7 @@ def register_bng_tools(mcp: FastMCP, settings: Settings) -> None:
             ErrorResponse: on invalid parameters, device lookup failure,
                 or Prometheus query error.
         """
-        device = resolve_device_source(device, settings.k8s_namespace)
+        device = await prepare_device(device, settings.k8s_namespace, mcp, ctx)
         logger.info(
             "bng_device_unavailability_map: device=%s interval=%s step=%s start_time=%s",
             device,
@@ -237,54 +244,12 @@ def register_bng_tools(mcp: FastMCP, settings: Settings) -> None:
         )
         await ctx.info(f"Checking unavailability for {device} over {interval} @ {step}")
 
-        try:
-            await verify_device_target(device, mcp)
-        except KubernetesClientError as exc:
-            raise ErrorResponse(
-                error="device_not_found",
-                detail=str(exc),
-                device=device,
-            ) from exc
-
-        try:
-            delta, prom_interval = parse_duration(interval)
-        except ValueError as exc:
-            raise ErrorResponse(
-                error="invalid_interval",
-                detail=f"Cannot parse interval '{interval}'",
-                device=device,
-                interval=interval,
-            ) from exc
-
-        try:
-            _, prom_step = parse_duration(step)
-        except ValueError as exc:
-            raise ErrorResponse(
-                error="invalid_step",
-                detail=f"Cannot parse step '{step}'",
-                device=device,
-                interval=interval,
-            ) from exc
-
-        if start_time:
-            try:
-                start_dt = parse_start_time(start_time)
-            except ValueError as exc:
-                raise ErrorResponse(
-                    error="invalid_start_time",
-                    detail=f"Cannot parse start_time '{start_time}'",
-                    device=device,
-                    interval=interval,
-                ) from exc
-            end_dt = start_dt + delta
-        else:
-            end_dt = datetime.now(tz=timezone.utc)
-            start_dt = end_dt - delta
+        window = resolve_query_window(interval, step, device, start_time)
 
         promql = (
             f"(absent_over_time("
             f'state_system_cpu_summary_usage_cpu_time{{source="{device}"}}'
-            f"[{prom_interval}]) == 1) OR "
+            f"[{window.prom_interval}]) == 1) OR "
             f"(count by (source) ("
             f'state_system_cpu_summary_usage_cpu_time{{source="{device}"}}'
             f") * 0)"
@@ -293,9 +258,9 @@ def register_bng_tools(mcp: FastMCP, settings: Settings) -> None:
         result = await execute_range_query(
             prom=prom,
             promql=promql,
-            start=start_dt.isoformat(),
-            end=end_dt.isoformat(),
-            step=prom_step,
+            start=window.start_dt.isoformat(),
+            end=window.end_dt.isoformat(),
+            step=window.prom_step,
             device=device,
             interval=interval,
             tool_name=sys._getframe(0).f_code.co_name,
@@ -362,7 +327,7 @@ def register_bng_tools(mcp: FastMCP, settings: Settings) -> None:
             ErrorResponse: on invalid parameters, device lookup failure,
                 or Prometheus query error.
         """
-        device = resolve_device_source(device, settings.k8s_namespace)
+        device = await prepare_device(device, settings.k8s_namespace, mcp, ctx)
         logger.info(
             "bng_device_cpu_usage: device=%s interval=%s step=%s start_time=%s",
             device,
@@ -372,49 +337,7 @@ def register_bng_tools(mcp: FastMCP, settings: Settings) -> None:
         )
         await ctx.info(f"Querying CPU usage for {device} over {interval} @ {step}")
 
-        try:
-            await verify_device_target(device, mcp)
-        except KubernetesClientError as exc:
-            raise ErrorResponse(
-                error="device_not_found",
-                detail=str(exc),
-                device=device,
-            ) from exc
-
-        try:
-            delta, prom_interval = parse_duration(interval)
-        except ValueError as exc:
-            raise ErrorResponse(
-                error="invalid_interval",
-                detail=f"Cannot parse interval '{interval}'",
-                device=device,
-                interval=interval,
-            ) from exc
-
-        try:
-            _, prom_step = parse_duration(step)
-        except ValueError as exc:
-            raise ErrorResponse(
-                error="invalid_step",
-                detail=f"Cannot parse step '{step}'",
-                device=device,
-                interval=interval,
-            ) from exc
-
-        if start_time:
-            try:
-                start_dt = parse_start_time(start_time)
-            except ValueError as exc:
-                raise ErrorResponse(
-                    error="invalid_start_time",
-                    detail=f"Cannot parse start_time '{start_time}'",
-                    device=device,
-                    interval=interval,
-                ) from exc
-            end_dt = start_dt + delta
-        else:
-            end_dt = datetime.now(tz=timezone.utc)
-            start_dt = end_dt - delta
+        window = resolve_query_window(interval, step, device, start_time)
 
         promql = (
             "state_system_cpu_summary_usage_cpu_usage"
@@ -424,9 +347,9 @@ def register_bng_tools(mcp: FastMCP, settings: Settings) -> None:
         result = await execute_range_query(
             prom=prom,
             promql=promql,
-            start=start_dt.isoformat(),
-            end=end_dt.isoformat(),
-            step=prom_step,
+            start=window.start_dt.isoformat(),
+            end=window.end_dt.isoformat(),
+            step=window.prom_step,
             device=device,
             interval=interval,
             tool_name=sys._getframe(0).f_code.co_name,
@@ -440,15 +363,16 @@ def register_bng_tools(mcp: FastMCP, settings: Settings) -> None:
         for q in [0.80, 0.95, 0.98]:
             promql_xxq = (
                 f"quantile_over_time({q}, state_system_cpu_summary_usage_cpu_usage"
-                f'{{cpu_sample_period="60",source="{device}"}}[{prom_interval}:{prom_step}])'
+                f'{{cpu_sample_period=60,source="{device}"}}'
+                f"[{window.prom_interval}:{window.prom_step}])"
             )
 
             quantile_result = await execute_range_query(
                 prom=prom,
                 promql=promql_xxq,
-                start=start_dt.isoformat(),
-                end=end_dt.isoformat(),
-                step=prom_step,
+                start=window.start_dt.isoformat(),
+                end=window.end_dt.isoformat(),
+                step=window.prom_step,
                 device=device,
                 interval=interval,
                 tool_name=sys._getframe(0).f_code.co_name,
@@ -516,7 +440,7 @@ def register_bng_tools(mcp: FastMCP, settings: Settings) -> None:
             ErrorResponse: on invalid parameters, device lookup failure,
                 or Prometheus query error.
         """
-        device = resolve_device_source(device, settings.k8s_namespace)
+        device = await prepare_device(device, settings.k8s_namespace, mcp, ctx)
         logger.info(
             "bng_device_memory_usage: device=%s interval=%s step=%s start_time=%s",
             device,
@@ -526,49 +450,7 @@ def register_bng_tools(mcp: FastMCP, settings: Settings) -> None:
         )
         await ctx.info(f"Querying memory usage for {device} over {interval} @ {step}")
 
-        try:
-            await verify_device_target(device, mcp)
-        except KubernetesClientError as exc:
-            raise ErrorResponse(
-                error="device_not_found",
-                detail=str(exc),
-                device=device,
-            ) from exc
-
-        try:
-            delta, prom_interval = parse_duration(interval)
-        except ValueError as exc:
-            raise ErrorResponse(
-                error="invalid_interval",
-                detail=f"Cannot parse interval '{interval}'",
-                device=device,
-                interval=interval,
-            ) from exc
-
-        try:
-            _, prom_step = parse_duration(step)
-        except ValueError as exc:
-            raise ErrorResponse(
-                error="invalid_step",
-                detail=f"Cannot parse step '{step}'",
-                device=device,
-                interval=interval,
-            ) from exc
-
-        if start_time:
-            try:
-                start_dt = parse_start_time(start_time)
-            except ValueError as exc:
-                raise ErrorResponse(
-                    error="invalid_start_time",
-                    detail=f"Cannot parse start_time '{start_time}'",
-                    device=device,
-                    interval=interval,
-                ) from exc
-            end_dt = start_dt + delta
-        else:
-            end_dt = datetime.now(tz=timezone.utc)
-            start_dt = end_dt - delta
+        window = resolve_query_window(interval, step, device, start_time)
 
         in_use = f'state_system_memory_pools_summary_total_in_use{{source="{device}"}}'
         available = f'state_system_memory_pools_summary_available_memory{{source="{device}"}}'
@@ -582,9 +464,9 @@ def register_bng_tools(mcp: FastMCP, settings: Settings) -> None:
         result = await execute_range_query(
             prom=prom,
             promql=promql,
-            start=start_dt.isoformat(),
-            end=end_dt.isoformat(),
-            step=prom_step,
+            start=window.start_dt.isoformat(),
+            end=window.end_dt.isoformat(),
+            step=window.prom_step,
             device=device,
             interval=interval,
             tool_name=sys._getframe(0).f_code.co_name,
@@ -602,15 +484,16 @@ def register_bng_tools(mcp: FastMCP, settings: Settings) -> None:
         quantiles: dict[float, float | None] = {}
         for q in [0.80, 0.95, 0.98]:
             promql_xxq = (
-                f"quantile_over_time({q}, ({mem_pct_expr})" f"[{prom_interval}:{prom_step}])"
+                f"quantile_over_time({q}, ({mem_pct_expr})"
+                f"[{window.prom_interval}:{window.prom_step}])"
             )
 
             quantile_result = await execute_range_query(
                 prom=prom,
                 promql=promql_xxq,
-                start=start_dt.isoformat(),
-                end=end_dt.isoformat(),
-                step=prom_step,
+                start=window.start_dt.isoformat(),
+                end=window.end_dt.isoformat(),
+                step=window.prom_step,
                 device=device,
                 interval=interval,
                 tool_name=sys._getframe(0).f_code.co_name,
@@ -668,18 +551,9 @@ def register_bng_tools(mcp: FastMCP, settings: Settings) -> None:
             ErrorResponse: on device lookup failure or Prometheus query
                 error.
         """
-        device = resolve_device_source(device, settings.k8s_namespace)
+        device = await prepare_device(device, settings.k8s_namespace, mcp, ctx)
         logger.info("bng_device_hosts_stats: device=%s", device)
         await ctx.info(f"Querying host stats for {device}")
-
-        try:
-            await verify_device_target(device, mcp)
-        except KubernetesClientError as exc:
-            raise ErrorResponse(
-                error="device_not_found",
-                detail=str(exc),
-                device=device,
-            ) from exc
 
         tool_name = sys._getframe(0).f_code.co_name
         ipv4_peak: int | None = None
@@ -721,4 +595,989 @@ def register_bng_tools(mcp: FastMCP, settings: Settings) -> None:
             ipv6_peak=ipv6_peak,
             ipv4_current=ipv4_current,
             ipv6_current=ipv6_current,
+        )
+
+    @mcp.tool()
+    @mock_intercept(settings)
+    async def sap_instances_allocated(
+        device: str,
+        interval: str,
+        step: str,
+        ctx: Context,
+        card: int | None = None,
+        mda: int | None = None,
+        start_time: str = "",
+    ) -> SapInstancesAllocatedResult:
+        """Return SAP instances allocated per card/MDA for a BNG device.
+
+        Executes a range query and an instant query on
+        `state_card_mda_resource_usage_sap_instances_allocated`.  When
+        `card` and/or `mda` are omitted, the corresponding label is
+        dropped from the Prometheus selector and one series per
+        matching (card, mda) pair is returned — results are NOT
+        aggregated across slots.
+
+        The SROS source xpath is:
+        `/state/card[slot-number=*]/mda[mda-slot=*]/resource-usage/sap-instances/allocated`.
+
+        Args:
+            device: Device name, with or without a namespace prefix.
+                Both `"clab-sros-bngt-bng1"` (resolved via the default
+                namespace) and `"nok-bng/clab-sros-bngt-bng1"` are
+                accepted.  The resolved value is used as the Prometheus
+                `source` label.
+            interval: Lookback window duration. Accepts Prometheus-style
+                shorthand (`"5m"`, `"1h"`) and human-friendly forms
+                (`"5min"`, `"2hours"`, `"7days"`). Case-insensitive.
+            step: Query resolution step, e.g. `"15s"`, `"1m"`.
+            ctx: MCP request context.
+            card: Optional card slot number. When `None`, all cards are
+                returned as separate series in `by_slot`.
+            mda: Optional MDA slot number. When `None`, all MDAs are
+                returned as separate series in `by_slot`.
+            start_time: Optional ISO 8601 start time with timezone,
+                e.g. `"2026-04-07T12:00:00+00:00"`. When empty the
+                window starts at `now - interval`.
+
+        Returns:
+            `SapInstancesAllocatedResult` with `device`, `interval`,
+            `step`, a `by_slot` list (one entry per matching card/MDA
+            with current/min/max), and the raw `MetricResult` matrix.
+
+        Raises:
+            ErrorResponse: on invalid parameters, device lookup failure,
+                or Prometheus query error.
+        """
+        metric = "state_card_mda_resource_usage_sap_instances_allocated"
+        tool_name = sys._getframe(0).f_code.co_name
+
+        device = await prepare_device(device, settings.k8s_namespace, mcp, ctx)
+        logger.info(
+            "sap_instances_allocated: device=%s card=%s mda=%s interval=%s step=%s start_time=%s",
+            device,
+            card,
+            mda,
+            interval,
+            step,
+            start_time or "auto",
+        )
+        await ctx.info(
+            f"Querying SAP instances allocated for {device} "
+            f"card={card if card is not None else '*'} "
+            f"mda={mda if mda is not None else '*'} "
+            f"over {interval} @ {step}"
+        )
+
+        # Metric example:
+        # state_card_mda_resource_usage_sap_instances_allocated{
+        #   card_slot_number="1", mda_mda_slot="1",
+        #   source="nok-bng/clab-sros-bngt-bng1", ...}
+        selectors = [f'source="{device}"']
+        if card is not None:
+            selectors.append(f'card_slot_number="{card}"')
+        if mda is not None:
+            selectors.append(f'mda_mda_slot="{mda}"')
+        promql = f'{metric}{{{",".join(selectors)}}}'
+
+        window = resolve_query_window(interval, step, device, start_time)
+
+        result = await execute_range_query(
+            prom=prom,
+            promql=promql,
+            start=window.start_dt.isoformat(),
+            end=window.end_dt.isoformat(),
+            step=window.prom_step,
+            device=device,
+            interval=interval,
+            tool_name=tool_name,
+        )
+
+        current = await execute_instant_query(
+            prom=prom,
+            promql=promql,
+            device=device,
+            tool_name=tool_name,
+        )
+
+        def _slot_key(labels: dict[str, str]) -> tuple[int | None, int | None]:
+            c = labels.get("card_slot_number")
+            m = labels.get("mda_mda_slot")
+            return (int(c) if c is not None else None, int(m) if m is not None else None)
+
+        current_by_slot: dict[tuple[int | None, int | None], float] = {}
+        for series in current.series:
+            if series.samples:
+                current_by_slot[_slot_key(series.labels)] = series.samples[0].value
+
+        by_slot: list[SapAllocationBySlot] = []
+        for series in result.series:
+            values = [s.value for s in series.samples]
+            if not values:
+                continue
+            key = _slot_key(series.labels)
+            by_slot.append(
+                SapAllocationBySlot(
+                    card=key[0],
+                    mda=key[1],
+                    currently_allocated=current_by_slot.get(key),
+                    min_allocated=min(values),
+                    max_allocated=max(values),
+                )
+            )
+
+        return SapInstancesAllocatedResult(
+            device=device,
+            interval=interval,
+            step=step,
+            by_slot=by_slot,
+            result=result,
+        )
+
+    @mcp.tool()
+    @mock_intercept(settings)
+    async def ppp_sessions_total_established(
+        device: str, interval: str, step: str, ctx: Context, start_time: str = ""
+    ) -> PppSessionsTotalEstablishedResult:
+        """Return established PPP session counts for a BNG device over a window.
+
+        Executes a range query and an instant query on
+        `state_subscriber_mgmt_statistics_sessions_current_value` filtered by
+        `sessions_counter="ppp-sessions-total-established"`.  Returns the
+        current value plus min/max observed across the window and the raw
+        Prometheus matrix.
+
+        The SROS source xpath is:
+        `/state/subscriber-mgmt/statistics/sessions[counter=ppp-sessions-total-established]/current-value`.
+
+        Args:
+            device: Device name, with or without a namespace prefix.
+                Both `"clab-sros-bngt-bng1"` (resolved via the default
+                namespace) and `"nok-bng/clab-sros-bngt-bng1"` are
+                accepted.  The resolved value is used as the Prometheus
+                `source` label.
+            interval: Lookback window duration. Accepts Prometheus-style
+                shorthand (`"5m"`, `"1h"`) and human-friendly forms
+                (`"5min"`, `"2hours"`, `"7days"`). Case-insensitive.
+            step: Query resolution step, e.g. `"15s"`, `"1m"`.
+            ctx: MCP request context.
+            start_time: Optional ISO 8601 start time with timezone,
+                e.g. `"2026-04-07T12:00:00+00:00"`. When empty the
+                window starts at `now - interval`.
+
+        Returns:
+            `PppSessionsTotalEstablishedResult` with `device`, `interval`,
+            `step`, `currently_established`, `min_established`,
+            `max_established`, and the raw `MetricResult` matrix.
+
+        Raises:
+            ErrorResponse: on invalid parameters, device lookup failure,
+                or Prometheus query error.
+        """
+        metric = "state_subscriber_mgmt_statistics_sessions_current_value"
+        counter = "ppp-sessions-total-established"
+        tool_name = sys._getframe(0).f_code.co_name
+
+        device = await prepare_device(device, settings.k8s_namespace, mcp, ctx)
+        logger.info(
+            "ppp_sessions_total_established: device=%s interval=%s step=%s start_time=%s",
+            device,
+            interval,
+            step,
+            start_time or "auto",
+        )
+        await ctx.info(f"Querying PPP sessions established for {device} over {interval} @ {step}")
+
+        promql = f'{metric}{{source="{device}",sessions_counter="{counter}"}}'
+
+        window = resolve_query_window(interval, step, device, start_time)
+
+        result = await execute_range_query(
+            prom=prom,
+            promql=promql,
+            start=window.start_dt.isoformat(),
+            end=window.end_dt.isoformat(),
+            step=window.prom_step,
+            device=device,
+            interval=interval,
+            tool_name=tool_name,
+        )
+        current = await execute_instant_query(
+            prom=prom,
+            promql=promql,
+            device=device,
+            tool_name=tool_name,
+        )
+
+        currently_established: int | None = None
+        if current.series and current.series[0].samples:
+            currently_established = int(current.series[0].samples[0].value)
+
+        min_v: int | None = None
+        max_v: int | None = None
+        for series in result.series:
+            values = [s.value for s in series.samples]
+            if not values:
+                continue
+            s_min = int(min(values))
+            s_max = int(max(values))
+            min_v = s_min if min_v is None else min(min_v, s_min)
+            max_v = s_max if max_v is None else max(max_v, s_max)
+
+        return PppSessionsTotalEstablishedResult(
+            device=device,
+            interval=interval,
+            step=step,
+            currently_established=currently_established,
+            min_established=min_v,
+            max_established=max_v,
+            result=result,
+        )
+
+    # Metric: ( state_card_fp_resource_usage_egress_policers_allocated / on (source)
+    # state_card_fp_resource_usage_egress_policers_total) * 100
+    # state_card_fp_resource_usage_egress_policers_allocated{card_slot_number="1",
+    # endpoint="metrics", fp_fp_number="1", instance="10.244.0.48:10332",
+    # job="gnmic-bng-metrics-prom-bng-tel-prom-output",
+    # namespace="nok-bng", pod="gnmic-bng-metrics-0",
+    # service="gnmic-bng-metrics-prom-bng-tel-prom-output",
+    # source="nok-bng/clab-sros-bngt-bng1", subscription_name="nok-bng/sros-fp-sub-mgmt-resources"}
+    # state_card_fp_resource_usage_egress_policers_total{card_slot_number="1", endpoint="metrics",
+    # fp_fp_number="1", instance="10.244.0.48:10332",
+    # job="gnmic-bng-metrics-prom-bng-tel-prom-output",
+    # namespace="nok-bng", pod="gnmic-bng-metrics-0",
+    # service="gnmic-bng-metrics-prom-bng-tel-prom-output",
+    # source="nok-bng/clab-sros-bngt-bng1", subscription_name="nok-bng/sros-fp-sub-mgmt-resources"}
+
+    async def _query_policers_allocated(
+        direction: PolicerDirection,
+        device: str,
+        interval: str,
+        step: str,
+        ctx: Context,
+        card: int | None,
+        fp: int | None,
+        start_time: str,
+        tool_name: str,
+    ) -> PolicersAllocatedResult:
+        """Run the three Prometheus queries powering the policer-allocation tools.
+
+        Shared by `ingress_policers_allocated` and `egress_policers_allocated`.
+        See those tools' docstrings for full argument and return semantics.
+        """
+        device = await prepare_device(device, settings.k8s_namespace, mcp, ctx)
+        logger.info(
+            "%s: device=%s card=%s fp=%s interval=%s step=%s start_time=%s",
+            tool_name,
+            device,
+            card,
+            fp,
+            interval,
+            step,
+            start_time or "auto",
+        )
+        await ctx.info(
+            f"Querying {direction} policers allocated for {device} "
+            f"card={card if card is not None else '*'} "
+            f"fp={fp if fp is not None else '*'} "
+            f"over {interval} @ {step}"
+        )
+
+        allocated_metric = f"state_card_fp_resource_usage_{direction}_policers_allocated"
+        total_metric = f"state_card_fp_resource_usage_{direction}_policers_total"
+
+        selectors = [f'source="{device}"']
+        if card is not None:
+            selectors.append(f'card_slot_number="{card}"')
+        if fp is not None:
+            selectors.append(f'fp_fp_number="{fp}"')
+        sel = ",".join(selectors)
+
+        allocated_promql = f"{allocated_metric}{{{sel}}}"
+        total_promql = f"{total_metric}{{{sel}}}"
+        pct_promql = (
+            f"{allocated_metric}{{{sel}}}"
+            f" / on(source, card_slot_number, fp_fp_number) "
+            f"{total_metric}{{{sel}}}"
+            f" * 100"
+        )
+
+        window = resolve_query_window(interval, step, device, start_time)
+
+        pct_range = await execute_range_query(
+            prom=prom,
+            promql=pct_promql,
+            start=window.start_dt.isoformat(),
+            end=window.end_dt.isoformat(),
+            step=window.prom_step,
+            device=device,
+            interval=interval,
+            tool_name=tool_name,
+        )
+        allocated_instant = await execute_instant_query(
+            prom=prom,
+            promql=allocated_promql,
+            device=device,
+            tool_name=tool_name,
+        )
+        total_instant = await execute_instant_query(
+            prom=prom,
+            promql=total_promql,
+            device=device,
+            tool_name=tool_name,
+        )
+
+        def _key(labels: dict[str, str]) -> tuple[int | None, int | None]:
+            c = labels.get("card_slot_number")
+            f = labels.get("fp_fp_number")
+            return (int(c) if c is not None else None, int(f) if f is not None else None)
+
+        allocated_by_slot: dict[tuple[int | None, int | None], float] = {}
+        for series in allocated_instant.series:
+            if series.samples:
+                allocated_by_slot[_key(series.labels)] = series.samples[0].value
+
+        total_by_slot: dict[tuple[int | None, int | None], float] = {}
+        for series in total_instant.series:
+            if series.samples:
+                total_by_slot[_key(series.labels)] = series.samples[0].value
+
+        by_slot: list[PolicersAllocationBySlot] = []
+        seen: set[tuple[int | None, int | None]] = set()
+        for series in pct_range.series:
+            key = _key(series.labels)
+            if key in seen:
+                continue
+            seen.add(key)
+            values = [s.value for s in series.samples]
+            min_pct = min(values) if values else None
+            max_pct = max(values) if values else None
+
+            allocated = allocated_by_slot.get(key)
+            total = total_by_slot.get(key)
+            if allocated is not None and total is not None and total != 0:
+                currently_pct: float | None = allocated / total * 100
+            else:
+                currently_pct = None
+
+            by_slot.append(
+                PolicersAllocationBySlot(
+                    card=key[0],
+                    fp=key[1],
+                    currently_allocated=allocated,
+                    currently_total=total,
+                    currently_pct=currently_pct,
+                    min_pct=min_pct,
+                    max_pct=max_pct,
+                )
+            )
+
+        # Include slots that have instant values but no range series (rare).
+        for key in set(allocated_by_slot) | set(total_by_slot):
+            if key in seen:
+                continue
+            allocated = allocated_by_slot.get(key)
+            total = total_by_slot.get(key)
+            if allocated is not None and total is not None and total != 0:
+                currently_pct = allocated / total * 100
+            else:
+                currently_pct = None
+            by_slot.append(
+                PolicersAllocationBySlot(
+                    card=key[0],
+                    fp=key[1],
+                    currently_allocated=allocated,
+                    currently_total=total,
+                    currently_pct=currently_pct,
+                    min_pct=None,
+                    max_pct=None,
+                )
+            )
+
+        return PolicersAllocatedResult(
+            device=device,
+            direction=direction,
+            interval=interval,
+            step=step,
+            by_slot=by_slot,
+            result=pct_range,
+        )
+
+    @mcp.tool()
+    @mock_intercept(settings)
+    async def ingress_policers_allocated(
+        device: str,
+        interval: str,
+        step: str,
+        ctx: Context,
+        card: int | None = None,
+        fp: int | None = None,
+        start_time: str = "",
+    ) -> PolicersAllocatedResult:
+        """Return ingress policer allocation per (card, fp) for a BNG device.
+
+        Executes instant queries on
+        `state_card_fp_resource_usage_ingress_policers_allocated` and
+        `state_card_fp_resource_usage_ingress_policers_total`, plus a
+        range query on their ratio (in %), so callers can spot FPs
+        approaching ingress policer exhaustion.
+
+        When `card` and/or `fp` are omitted, the corresponding label is
+        dropped from the Prometheus selector and one series per
+        matching (card, fp) pair is returned — results are NOT
+        aggregated across slots.
+
+        The SROS source xpath is:
+        `/state/card[slot-number=*]/fp[fp-number=*]/resource-usage/ingress-policers`.
+
+        Args:
+            device: Device name, with or without a namespace prefix.
+                Both `"clab-sros-bngt-bng1"` (resolved via the default
+                namespace) and `"nok-bng/clab-sros-bngt-bng1"` are
+                accepted.  The resolved value is used as the Prometheus
+                `source` label.
+            interval: Lookback window duration. Accepts Prometheus-style
+                shorthand (`"5m"`, `"1h"`) and human-friendly forms
+                (`"5min"`, `"2hours"`, `"7days"`). Case-insensitive.
+            step: Query resolution step, e.g. `"15s"`, `"1m"`.
+            ctx: MCP request context.
+            card: Optional card slot number. When `None`, all cards are
+                returned as separate entries in `by_slot`.
+            fp: Optional FP (forwarding plane) number. When `None`, all
+                FPs are returned as separate entries in `by_slot`.
+            start_time: Optional ISO 8601 start time with timezone,
+                e.g. `"2026-04-07T12:00:00+00:00"`. When empty the
+                window starts at `now - interval`.
+
+        Returns:
+            `PolicersAllocatedResult` with `device`, `direction="ingress"`,
+            `interval`, `step`, a `by_slot` list (per matching card/fp
+            with currently_allocated/total/pct, min/max pct), and the
+            raw utilisation-% `MetricResult` matrix.
+
+        Raises:
+            ErrorResponse: on invalid parameters, device lookup failure,
+                or Prometheus query error.
+        """
+        return await _query_policers_allocated(
+            direction="ingress",
+            device=device,
+            interval=interval,
+            step=step,
+            ctx=ctx,
+            card=card,
+            fp=fp,
+            start_time=start_time,
+            tool_name=sys._getframe(0).f_code.co_name,
+        )
+
+    @mcp.tool()
+    @mock_intercept(settings)
+    async def egress_policers_allocated(
+        device: str,
+        interval: str,
+        step: str,
+        ctx: Context,
+        card: int | None = None,
+        fp: int | None = None,
+        start_time: str = "",
+    ) -> PolicersAllocatedResult:
+        """Return egress policer allocation per (card, fp) for a BNG device.
+
+        Executes instant queries on
+        `state_card_fp_resource_usage_egress_policers_allocated` and
+        `state_card_fp_resource_usage_egress_policers_total`, plus a
+        range query on their ratio (in %), so callers can spot FPs
+        approaching egress policer exhaustion.
+
+        When `card` and/or `fp` are omitted, the corresponding label is
+        dropped from the Prometheus selector and one series per
+        matching (card, fp) pair is returned — results are NOT
+        aggregated across slots.
+
+        The SROS source xpath is:
+        `/state/card[slot-number=*]/fp[fp-number=*]/resource-usage/egress-policers`.
+
+        Args:
+            device: Device name, with or without a namespace prefix.
+                Both `"clab-sros-bngt-bng1"` (resolved via the default
+                namespace) and `"nok-bng/clab-sros-bngt-bng1"` are
+                accepted.  The resolved value is used as the Prometheus
+                `source` label.
+            interval: Lookback window duration. Accepts Prometheus-style
+                shorthand (`"5m"`, `"1h"`) and human-friendly forms
+                (`"5min"`, `"2hours"`, `"7days"`). Case-insensitive.
+            step: Query resolution step, e.g. `"15s"`, `"1m"`.
+            ctx: MCP request context.
+            card: Optional card slot number. When `None`, all cards are
+                returned as separate entries in `by_slot`.
+            fp: Optional FP (forwarding plane) number. When `None`, all
+                FPs are returned as separate entries in `by_slot`.
+            start_time: Optional ISO 8601 start time with timezone,
+                e.g. `"2026-04-07T12:00:00+00:00"`. When empty the
+                window starts at `now - interval`.
+
+        Returns:
+            `PolicersAllocatedResult` with `device`, `direction="egress"`,
+            `interval`, `step`, a `by_slot` list (per matching card/fp
+            with currently_allocated/total/pct, min/max pct), and the
+            raw utilisation-% `MetricResult` matrix.
+
+        Raises:
+            ErrorResponse: on invalid parameters, device lookup failure,
+                or Prometheus query error.
+        """
+        return await _query_policers_allocated(
+            direction="egress",
+            device=device,
+            interval=interval,
+            step=step,
+            ctx=ctx,
+            card=card,
+            fp=fp,
+            start_time=start_time,
+            tool_name=sys._getframe(0).f_code.co_name,
+        )
+
+    # Metric: ( state_card_fp_resource_usage_egress_queues_allocated/
+    # on (source) state_card_fp_resource_usage_egress_queues_total) * 100
+    # state_card_fp_resource_usage_egress_queues_allocated{card_slot_number="1",
+    # endpoint="metrics", fp_fp_number="1", instance="10.244.0.48:10332",
+    # job="gnmic-bng-metrics-prom-bng-tel-prom-output", namespace="nok-bng",
+    # pod="gnmic-bng-metrics-0", service="gnmic-bng-metrics-prom-bng-tel-prom-output",
+    # source="nok-bng/clab-sros-bngt-bng1", subscription_name="nok-bng/sros-fp-sub-mgmt-resources"}
+    # state_card_fp_resource_usage_egress_queues_total{card_slot_number="1",
+    # endpoint="metrics", fp_fp_number="1", instance="10.244.0.48:10332",
+    # job="gnmic-bng-metrics-prom-bng-tel-prom-output", namespace="nok-bng",
+    # pod="gnmic-bng-metrics-0", service="gnmic-bng-metrics-prom-bng-tel-prom-output",
+    # source="nok-bng/clab-sros-bngt-bng1", subscription_name="nok-bng/sros-fp-sub-mgmt-resources"}
+
+    async def _query_queues_allocated(
+        direction: QueuesDirection,
+        device: str,
+        interval: str,
+        step: str,
+        ctx: Context,
+        card: int | None,
+        fp: int | None,
+        start_time: str,
+        tool_name: str,
+    ) -> QueuesAllocatedResult:
+        """Run the three Prometheus queries powering the queue-allocation tools.
+
+        Shared by `ingress_queues_allocated` and `egress_queues_allocated`.
+        See those tools' docstrings for full argument and return semantics.
+        """
+        device = await prepare_device(device, settings.k8s_namespace, mcp, ctx)
+        logger.info(
+            "%s: device=%s card=%s fp=%s interval=%s step=%s start_time=%s",
+            tool_name,
+            device,
+            card,
+            fp,
+            interval,
+            step,
+            start_time or "auto",
+        )
+        await ctx.info(
+            f"Querying {direction} queues allocated for {device} "
+            f"card={card if card is not None else '*'} "
+            f"fp={fp if fp is not None else '*'} "
+            f"over {interval} @ {step}"
+        )
+
+        allocated_metric = f"state_card_fp_resource_usage_{direction}_queues_allocated"
+        total_metric = f"state_card_fp_resource_usage_{direction}_queues_total"
+
+        selectors = [f'source="{device}"']
+        if card is not None:
+            selectors.append(f'card_slot_number="{card}"')
+        if fp is not None:
+            selectors.append(f'fp_fp_number="{fp}"')
+        sel = ",".join(selectors)
+
+        allocated_promql = f"{allocated_metric}{{{sel}}}"
+        total_promql = f"{total_metric}{{{sel}}}"
+        pct_promql = (
+            f"{allocated_metric}{{{sel}}}"
+            f" / on(source, card_slot_number, fp_fp_number) "
+            f"{total_metric}{{{sel}}}"
+            f" * 100"
+        )
+
+        window = resolve_query_window(interval, step, device, start_time)
+
+        pct_range = await execute_range_query(
+            prom=prom,
+            promql=pct_promql,
+            start=window.start_dt.isoformat(),
+            end=window.end_dt.isoformat(),
+            step=window.prom_step,
+            device=device,
+            interval=interval,
+            tool_name=tool_name,
+        )
+        allocated_instant = await execute_instant_query(
+            prom=prom,
+            promql=allocated_promql,
+            device=device,
+            tool_name=tool_name,
+        )
+        total_instant = await execute_instant_query(
+            prom=prom,
+            promql=total_promql,
+            device=device,
+            tool_name=tool_name,
+        )
+
+        def _key(labels: dict[str, str]) -> tuple[int | None, int | None]:
+            c = labels.get("card_slot_number")
+            f = labels.get("fp_fp_number")
+            return (int(c) if c is not None else None, int(f) if f is not None else None)
+
+        allocated_by_slot: dict[tuple[int | None, int | None], float] = {}
+        for series in allocated_instant.series:
+            if series.samples:
+                allocated_by_slot[_key(series.labels)] = series.samples[0].value
+
+        total_by_slot: dict[tuple[int | None, int | None], float] = {}
+        for series in total_instant.series:
+            if series.samples:
+                total_by_slot[_key(series.labels)] = series.samples[0].value
+
+        by_slot: list[QueuesAllocationBySlot] = []
+        seen: set[tuple[int | None, int | None]] = set()
+        for series in pct_range.series:
+            key = _key(series.labels)
+            if key in seen:
+                continue
+            seen.add(key)
+            values = [s.value for s in series.samples]
+            min_pct = min(values) if values else None
+            max_pct = max(values) if values else None
+
+            allocated = allocated_by_slot.get(key)
+            total = total_by_slot.get(key)
+            if allocated is not None and total is not None and total != 0:
+                currently_pct: float | None = allocated / total * 100
+            else:
+                currently_pct = None
+
+            by_slot.append(
+                QueuesAllocationBySlot(
+                    card=key[0],
+                    fp=key[1],
+                    currently_allocated=allocated,
+                    currently_total=total,
+                    currently_pct=currently_pct,
+                    min_pct=min_pct,
+                    max_pct=max_pct,
+                )
+            )
+
+        # Include slots that have instant values but no range series (rare).
+        for key in set(allocated_by_slot) | set(total_by_slot):
+            if key in seen:
+                continue
+            allocated = allocated_by_slot.get(key)
+            total = total_by_slot.get(key)
+            if allocated is not None and total is not None and total != 0:
+                currently_pct = allocated / total * 100
+            else:
+                currently_pct = None
+            by_slot.append(
+                QueuesAllocationBySlot(
+                    card=key[0],
+                    fp=key[1],
+                    currently_allocated=allocated,
+                    currently_total=total,
+                    currently_pct=currently_pct,
+                    min_pct=None,
+                    max_pct=None,
+                )
+            )
+
+        return QueuesAllocatedResult(
+            device=device,
+            direction=direction,
+            interval=interval,
+            step=step,
+            by_slot=by_slot,
+            result=pct_range,
+        )
+
+    @mcp.tool()
+    @mock_intercept(settings)
+    async def ingress_queues_allocated(
+        device: str,
+        interval: str,
+        step: str,
+        ctx: Context,
+        card: int | None = None,
+        fp: int | None = None,
+        start_time: str = "",
+    ) -> QueuesAllocatedResult:
+        """Return ingress queue allocation per (card, fp) for a BNG device.
+
+        Executes instant queries on
+        `state_card_fp_resource_usage_ingress_queues_allocated` and
+        `state_card_fp_resource_usage_ingress_queues_total`, plus a
+        range query on their ratio (in %), so callers can spot FPs
+        approaching ingress queue exhaustion.
+
+        When `card` and/or `fp` are omitted, the corresponding label is
+        dropped from the Prometheus selector and one series per
+        matching (card, fp) pair is returned — results are NOT
+        aggregated across slots.
+
+        The SROS source xpath is:
+        `/state/card[slot-number=*]/fp[fp-number=*]/resource-usage/ingress-queues`.
+
+        Args:
+            device: Device name, with or without a namespace prefix.
+                Both `"clab-sros-bngt-bng1"` (resolved via the default
+                namespace) and `"nok-bng/clab-sros-bngt-bng1"` are
+                accepted.  The resolved value is used as the Prometheus
+                `source` label.
+            interval: Lookback window duration. Accepts Prometheus-style
+                shorthand (`"5m"`, `"1h"`) and human-friendly forms
+                (`"5min"`, `"2hours"`, `"7days"`). Case-insensitive.
+            step: Query resolution step, e.g. `"15s"`, `"1m"`.
+            ctx: MCP request context.
+            card: Optional card slot number. When `None`, all cards are
+                returned as separate entries in `by_slot`.
+            fp: Optional FP (forwarding plane) number. When `None`, all
+                FPs are returned as separate entries in `by_slot`.
+            start_time: Optional ISO 8601 start time with timezone,
+                e.g. `"2026-04-07T12:00:00+00:00"`. When empty the
+                window starts at `now - interval`.
+
+        Returns:
+            `QueuesAllocatedResult` with `device`, `direction="ingress"`,
+            `interval`, `step`, a `by_slot` list (per matching card/fp
+            with currently_allocated/total/pct, min/max pct), and the
+            raw utilisation-% `MetricResult` matrix.
+
+        Raises:
+            ErrorResponse: on invalid parameters, device lookup failure,
+                or Prometheus query error.
+        """
+        return await _query_queues_allocated(
+            direction="ingress",
+            device=device,
+            interval=interval,
+            step=step,
+            ctx=ctx,
+            card=card,
+            fp=fp,
+            start_time=start_time,
+            tool_name=sys._getframe(0).f_code.co_name,
+        )
+
+    @mcp.tool()
+    @mock_intercept(settings)
+    async def egress_queues_allocated(
+        device: str,
+        interval: str,
+        step: str,
+        ctx: Context,
+        card: int | None = None,
+        fp: int | None = None,
+        start_time: str = "",
+    ) -> QueuesAllocatedResult:
+        """Return egress queue allocation per (card, fp) for a BNG device.
+
+        Executes instant queries on
+        `state_card_fp_resource_usage_egress_queues_allocated` and
+        `state_card_fp_resource_usage_egress_queues_total`, plus a
+        range query on their ratio (in %), so callers can spot FPs
+        approaching egress queue exhaustion.
+
+        When `card` and/or `fp` are omitted, the corresponding label is
+        dropped from the Prometheus selector and one series per
+        matching (card, fp) pair is returned — results are NOT
+        aggregated across slots.
+
+        The SROS source xpath is:
+        `/state/card[slot-number=*]/fp[fp-number=*]/resource-usage/egress-queues`.
+
+        Args:
+            device: Device name, with or without a namespace prefix.
+                Both `"clab-sros-bngt-bng1"` (resolved via the default
+                namespace) and `"nok-bng/clab-sros-bngt-bng1"` are
+                accepted.  The resolved value is used as the Prometheus
+                `source` label.
+            interval: Lookback window duration. Accepts Prometheus-style
+                shorthand (`"5m"`, `"1h"`) and human-friendly forms
+                (`"5min"`, `"2hours"`, `"7days"`). Case-insensitive.
+            step: Query resolution step, e.g. `"15s"`, `"1m"`.
+            ctx: MCP request context.
+            card: Optional card slot number. When `None`, all cards are
+                returned as separate entries in `by_slot`.
+            fp: Optional FP (forwarding plane) number. When `None`, all
+                FPs are returned as separate entries in `by_slot`.
+            start_time: Optional ISO 8601 start time with timezone,
+                e.g. `"2026-04-07T12:00:00+00:00"`. When empty the
+                window starts at `now - interval`.
+
+        Returns:
+            `QueuesAllocatedResult` with `device`, `direction="egress"`,
+            `interval`, `step`, a `by_slot` list (per matching card/fp
+            with currently_allocated/total/pct, min/max pct), and the
+            raw utilisation-% `MetricResult` matrix.
+
+        Raises:
+            ErrorResponse: on invalid parameters, device lookup failure,
+                or Prometheus query error.
+        """
+        return await _query_queues_allocated(
+            direction="egress",
+            device=device,
+            interval=interval,
+            step=step,
+            ctx=ctx,
+            card=card,
+            fp=fp,
+            start_time=start_time,
+            tool_name=sys._getframe(0).f_code.co_name,
+        )
+
+    # Metric: ( state_system_resource_usage_subscriber_next_hop_entries_allocated /
+    # on (source) state_system_resource_usage_subscriber_next_hop_entries_total) * 100
+    # state_system_resource_usage_subscriber_next_hop_entries_allocated{endpoint="metrics",
+    # instance="10.244.0.48:10332", job="gnmic-bng-metrics-prom-bng-tel-prom-output",
+    # namespace="nok-bng", pod="gnmic-bng-metrics-0",
+    # service="gnmic-bng-metrics-prom-bng-tel-prom-output",
+    # source="nok-bng/clab-sros-bngt-bng1", subscription_name="nok-bng/sros-system-resources"}
+    # state_system_resource_usage_subscriber_next_hop_entries_total{endpoint="metrics",
+    # instance="10.244.0.48:10332", job="gnmic-bng-metrics-prom-bng-tel-prom-output",
+    # namespace="nok-bng", pod="gnmic-bng-metrics-0",
+    # service="gnmic-bng-metrics-prom-bng-tel-prom-output",
+    # source="nok-bng/clab-sros-bngt-bng1", subscription_name="nok-bng/sros-system-resources"}
+
+    @mcp.tool()
+    @mock_intercept(settings)
+    async def subscriber_next_hop_entries_allocated(
+        device: str, interval: str, step: str, ctx: Context, start_time: str = ""
+    ) -> SubscriberNextHopEntriesResult:
+        """Return subscriber next-hop entries allocation for a BNG device.
+
+        Executes instant queries on
+        `state_system_resource_usage_subscriber_next_hop_entries_allocated`
+        and `state_system_resource_usage_subscriber_next_hop_entries_total`,
+        plus a range query on their ratio (in %), so callers can spot
+        devices approaching subscriber next-hop table exhaustion.  Results
+        are device-scoped (joined on the `source` label); there is no
+        card/fp dimension.
+
+        The SROS source xpath is:
+        `/state/system/resource-usage/subscriber-next-hop-entries`.
+
+        Args:
+            device: Device name, with or without a namespace prefix.
+                Both `"clab-sros-bngt-bng1"` (resolved via the default
+                namespace) and `"nok-bng/clab-sros-bngt-bng1"` are
+                accepted.  The resolved value is used as the Prometheus
+                `source` label.
+            interval: Lookback window duration. Accepts Prometheus-style
+                shorthand (`"5m"`, `"1h"`) and human-friendly forms
+                (`"5min"`, `"2hours"`, `"7days"`). Case-insensitive.
+            step: Query resolution step, e.g. `"15s"`, `"1m"`.
+            ctx: MCP request context.
+            start_time: Optional ISO 8601 start time with timezone,
+                e.g. `"2026-04-07T12:00:00+00:00"`. When empty the
+                window starts at `now - interval`.
+
+        Returns:
+            `SubscriberNextHopEntriesResult` with `device`, `interval`,
+            `step`, `currently_allocated`, `currently_total`,
+            `currently_pct`, `min_pct`, `max_pct`, and the raw
+            utilisation-% `MetricResult` matrix.
+
+        Raises:
+            ErrorResponse: on invalid parameters, device lookup failure,
+                or Prometheus query error.
+        """
+        tool_name = sys._getframe(0).f_code.co_name
+        device = await prepare_device(device, settings.k8s_namespace, mcp, ctx)
+        logger.info(
+            "subscriber_next_hop_entries_allocated: device=%s interval=%s step=%s start_time=%s",
+            device,
+            interval,
+            step,
+            start_time or "auto",
+        )
+        await ctx.info(
+            f"Querying subscriber next-hop entries allocated for {device} "
+            f"over {interval} @ {step}"
+        )
+
+        allocated_metric = "state_system_resource_usage_subscriber_next_hop_entries_allocated"
+        total_metric = "state_system_resource_usage_subscriber_next_hop_entries_total"
+        sel = f'source="{device}"'
+
+        allocated_promql = f"{allocated_metric}{{{sel}}}"
+        total_promql = f"{total_metric}{{{sel}}}"
+        pct_promql = (
+            f"{allocated_metric}{{{sel}}}" f" / on(source) " f"{total_metric}{{{sel}}}" f" * 100"
+        )
+
+        window = resolve_query_window(interval, step, device, start_time)
+
+        pct_range = await execute_range_query(
+            prom=prom,
+            promql=pct_promql,
+            start=window.start_dt.isoformat(),
+            end=window.end_dt.isoformat(),
+            step=window.prom_step,
+            device=device,
+            interval=interval,
+            tool_name=tool_name,
+        )
+        allocated_instant = await execute_instant_query(
+            prom=prom,
+            promql=allocated_promql,
+            device=device,
+            tool_name=tool_name,
+        )
+        total_instant = await execute_instant_query(
+            prom=prom,
+            promql=total_promql,
+            device=device,
+            tool_name=tool_name,
+        )
+
+        currently_allocated: float | None = None
+        if allocated_instant.series and allocated_instant.series[0].samples:
+            currently_allocated = allocated_instant.series[0].samples[0].value
+
+        currently_total: float | None = None
+        if total_instant.series and total_instant.series[0].samples:
+            currently_total = total_instant.series[0].samples[0].value
+
+        if currently_allocated is not None and currently_total is not None and currently_total != 0:
+            currently_pct: float | None = currently_allocated / currently_total * 100
+        else:
+            currently_pct = None
+
+        min_pct: float | None = None
+        max_pct: float | None = None
+        for series in pct_range.series:
+            values = [s.value for s in series.samples]
+            if not values:
+                continue
+            s_min = min(values)
+            s_max = max(values)
+            min_pct = s_min if min_pct is None else min(min_pct, s_min)
+            max_pct = s_max if max_pct is None else max(max_pct, s_max)
+
+        return SubscriberNextHopEntriesResult(
+            device=device,
+            interval=interval,
+            step=step,
+            currently_allocated=currently_allocated,
+            currently_total=currently_total,
+            currently_pct=currently_pct,
+            min_pct=min_pct,
+            max_pct=max_pct,
+            result=pct_range,
         )

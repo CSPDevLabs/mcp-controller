@@ -10,7 +10,7 @@ from mcp.server.fastmcp import FastMCP
 from mcp.server.fastmcp.exceptions import ResourceError
 from mcp.server.fastmcp.server import Context
 
-from mcp_controller.bng.types import TargetSummary
+from mcp_controller.bng.types import QueryWindow, TargetSummary
 from mcp_controller.core.k8s_types import NetworkDeviceTarget, NetworkHostTarget
 from mcp_controller.core.types import ErrorResponse, MetricResult
 from mcp_controller.core.kubernetes_client import (
@@ -236,6 +236,74 @@ def parse_start_time(value: str) -> datetime:
     return dt_utc
 
 
+def resolve_query_window(
+    interval: str,
+    step: str,
+    device: str,
+    start_time: str = "",
+) -> QueryWindow:
+    """Resolve interval, step, and optional start_time into a `QueryWindow`.
+
+    Parses Prometheus-style duration strings and computes the query
+    time range, raising a typed `ErrorResponse` on any parse failure.
+
+    Args:
+        interval: Lookback window duration (e.g. `"1h"`, `"30m"`).
+        step: Query resolution step (e.g. `"1m"`, `"15s"`).
+        device: Device identifier used in error context.
+        start_time: Optional ISO 8601 start time. When empty the
+            window ends at `now`.
+
+    Returns:
+        `QueryWindow` with `prom_interval`, `prom_step`,
+        `start_dt`, and `end_dt`.
+
+    Raises:
+        ErrorResponse: on invalid `interval`, `step`, or `start_time`.
+    """
+    try:
+        delta, prom_interval = parse_duration(interval)
+    except ValueError as exc:
+        raise ErrorResponse(
+            error="invalid_interval",
+            detail=f"Cannot parse interval '{interval}'",
+            device=device,
+            interval=interval,
+        ) from exc
+
+    try:
+        _, prom_step = parse_duration(step)
+    except ValueError as exc:
+        raise ErrorResponse(
+            error="invalid_step",
+            detail=f"Cannot parse step '{step}'",
+            device=device,
+            interval=interval,
+        ) from exc
+
+    if start_time:
+        try:
+            start_dt = parse_start_time(start_time)
+        except ValueError as exc:
+            raise ErrorResponse(
+                error="invalid_start_time",
+                detail=f"Cannot parse start_time '{start_time}'",
+                device=device,
+                interval=interval,
+            ) from exc
+        end_dt = start_dt + delta
+    else:
+        end_dt = datetime.now(tz=timezone.utc)
+        start_dt = end_dt - delta
+
+    return QueryWindow(
+        prom_interval=prom_interval,
+        prom_step=prom_step,
+        start_dt=start_dt,
+        end_dt=end_dt,
+    )
+
+
 def resolve_device_source(device: str, default_namespace: str) -> str:
     """Normalize a device identifier into a Prometheus `source` label value.
 
@@ -304,6 +372,40 @@ async def verify_device_target(device_source: str, mcp: FastMCP) -> None:
     raise KubernetesNotFoundError(
         f"NetworkDeviceTarget '{name}' not found in namespace '{namespace}'"
     )
+
+
+async def prepare_device(device: str, k8s_namespace: str, mcp: FastMCP, ctx: Context) -> str:
+    """Resolve and verify a device identifier.
+
+    Normalizes `device` to a fully-qualified `namespace/name` source label,
+    logs when the name is adjusted, and verifies the device exists in the
+    registered targets.
+
+    Args:
+        device: Device name, with or without a namespace prefix.
+        k8s_namespace: Default namespace used when `device` has none.
+        mcp: The FastMCP server instance used to verify the target.
+        ctx: MCP request context for client-visible progress messages.
+
+    Returns:
+        Fully qualified `namespace/name` source label string.
+
+    Raises:
+        ErrorResponse: if the device is not found in the registered targets.
+    """
+    resolved = resolve_device_source(device, k8s_namespace)
+    if resolved != device:
+        logger.info("Device name resolved: %r -> %r", device, resolved)
+        await ctx.info(f"Device name resolved: {device!r} → {resolved!r}")
+    try:
+        await verify_device_target(resolved, mcp)
+    except KubernetesClientError as exc:
+        raise ErrorResponse(
+            error="device_not_found",
+            detail=str(exc),
+            device=resolved,
+        ) from exc
+    return resolved
 
 
 @dataclass(frozen=True, slots=True)
