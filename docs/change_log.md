@@ -1,5 +1,39 @@
 # Change Log
 
+## 2026-05-18
+
+### BNG resource-usage metric tools and shared query-window helper
+
+Added a family of BNG metric tools covering subscriber-management session
+counts and card/fp/mda resource allocation. Each tool reports current value
+plus min/max over the lookback window, and — where a paired `_total` series
+exists — current/min/max utilisation (%). Factored the duration parsing and
+time-range resolution shared by every metric tool into a single helper.
+
+**Changes:**
+
+- **`bng/common.py`** -- Added `resolve_query_window(interval, step, device,
+  start_time="")` returning a `QueryWindow` (`prom_interval`, `prom_step`,
+  `start_dt`, `end_dt`). Wraps the two `parse_duration` calls and the
+  `parse_start_time` call, mapping each failure to a typed `ErrorResponse`
+  (`invalid_interval`, `invalid_step`, `invalid_start_time`).
+- **`bng/types.py`** -- Added `QueryWindow` plus the response models for the
+  new tools: `PppSessionsTotalEstablishedResult`, `SapInstancesAllocatedResult`,
+  `IngressPolicersAllocatedResult`, `EgressPolicersAllocatedResult`,
+  `IngressQueuesAllocatedResult`, `EgressQueuesAllocatedResult`, and
+  `SubscriberNextHopEntriesAllocatedResult`. Per-slot/per-fp entries carry
+  current and min/max counts (and utilisation % where applicable).
+- **`bng/tools.py`** -- Added `ppp_sessions_total_established`,
+  `sap_instances_allocated`, `ingress_policers_allocated`,
+  `egress_policers_allocated`, `ingress_queues_allocated`,
+  `egress_queues_allocated`, and `subscriber_next_hop_entries_allocated`.
+  All call `resolve_query_window` for time handling and `verify_device_target`
+  for device existence checks before issuing PromQL. Card/fp/mda filter
+  arguments are optional and applied as PromQL label matchers when provided.
+- **`bng/resources.py`** -- Registered the seven new tools in `BNG_MANIFEST`
+  with `CapabilityTag.METRICS`/`SUBSCRIBER_MGMT`/`OBSERVABILITY`/`RESOURCES`
+  tags as appropriate.
+
 ## 2026-04-17
 
 ### Restore green test suite — fix config defaults, controller-id aliasing, respx HTTP method
