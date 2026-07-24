@@ -49,7 +49,7 @@ Useful nvm commands:
 Make sure your MCP server is installed and runnable:
 
 ```bash
-pip install -e ".[dev]"
+uv sync
 ```
 
 ## Running the MCP Inspector

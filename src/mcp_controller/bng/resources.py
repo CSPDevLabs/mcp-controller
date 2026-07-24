@@ -92,12 +92,12 @@ BNG_MANIFEST = ControllerManifest(
             tags=[CapabilityTag.TARGETS, CapabilityTag.DISCOVERY],
         ),
         ControllerCapability(
-            name="bng://health/summary",
-            kind="resource",
+            name="bng_health_summary",
+            kind="tool",
             description=(
                 "Real-time overall BNG health status — aggregated across all "
-                "metric categories (CPU, memory, SRRP, FP resources, subscribers). "
-                "To be implemented."
+                "monitored devices from CPU usage, memory utilisation, and "
+                "device availability, with an overall worst-case status."
             ),
             tags=[CapabilityTag.OBSERVABILITY, CapabilityTag.STATUS],
         ),
@@ -169,6 +169,88 @@ BNG_MANIFEST = ControllerManifest(
                 "and `state_subscriber_mgmt_statistics_total_hosts_current_value`."
             ),
             tags=[CapabilityTag.METRICS, CapabilityTag.SUBSCRIBER_MGMT, CapabilityTag.RESOURCES],
+        ),
+        ControllerCapability(
+            name="ppp_sessions_total_established",
+            kind="tool",
+            description=(
+                "Query established PPP sessions for a BNG device using "
+                "`state_subscriber_mgmt_statistics_sessions_current_value` "
+                'filtered by `sessions_counter="ppp-sessions-total-established"`. '
+                "Returns current count and min/max over the window."
+            ),
+            tags=[CapabilityTag.METRICS, CapabilityTag.SUBSCRIBER_MGMT, CapabilityTag.RESOURCES],
+        ),
+        ControllerCapability(
+            name="sap_instances_allocated",
+            kind="tool",
+            description=(
+                "Query SAP instances allocated per (card, mda) for a BNG device "
+                "using `state_card_mda_resource_usage_sap_instances_allocated`. "
+                "Returns currently allocated and min/max over the window per "
+                "matching slot. `card` and `mda` filters are optional."
+            ),
+            tags=[CapabilityTag.OBSERVABILITY, CapabilityTag.METRICS, CapabilityTag.RESOURCES],
+        ),
+        ControllerCapability(
+            name="ingress_policers_allocated",
+            kind="tool",
+            description=(
+                "Query ingress policer allocation per (card, fp) for a BNG device "
+                "using `state_card_fp_resource_usage_ingress_policers_allocated` and "
+                "`state_card_fp_resource_usage_ingress_policers_total`. Returns "
+                "currently allocated/total counts, current/min/max utilisation (%) "
+                "per FP. `card` and `fp` filters are optional."
+            ),
+            tags=[CapabilityTag.OBSERVABILITY, CapabilityTag.METRICS, CapabilityTag.RESOURCES],
+        ),
+        ControllerCapability(
+            name="egress_policers_allocated",
+            kind="tool",
+            description=(
+                "Query egress policer allocation per (card, fp) for a BNG device "
+                "using `state_card_fp_resource_usage_egress_policers_allocated` and "
+                "`state_card_fp_resource_usage_egress_policers_total`. Returns "
+                "currently allocated/total counts, current/min/max utilisation (%) "
+                "per FP. `card` and `fp` filters are optional."
+            ),
+            tags=[CapabilityTag.OBSERVABILITY, CapabilityTag.METRICS, CapabilityTag.RESOURCES],
+        ),
+        ControllerCapability(
+            name="ingress_queues_allocated",
+            kind="tool",
+            description=(
+                "Query ingress queue allocation per (card, fp) for a BNG device "
+                "using `state_card_fp_resource_usage_ingress_queues_allocated` and "
+                "`state_card_fp_resource_usage_ingress_queues_total`. Returns "
+                "currently allocated/total counts, current/min/max utilisation (%) "
+                "per FP. `card` and `fp` filters are optional."
+            ),
+            tags=[CapabilityTag.OBSERVABILITY, CapabilityTag.METRICS, CapabilityTag.RESOURCES],
+        ),
+        ControllerCapability(
+            name="egress_queues_allocated",
+            kind="tool",
+            description=(
+                "Query egress queue allocation per (card, fp) for a BNG device "
+                "using `state_card_fp_resource_usage_egress_queues_allocated` and "
+                "`state_card_fp_resource_usage_egress_queues_total`. Returns "
+                "currently allocated/total counts, current/min/max utilisation (%) "
+                "per FP. `card` and `fp` filters are optional."
+            ),
+            tags=[CapabilityTag.OBSERVABILITY, CapabilityTag.METRICS, CapabilityTag.RESOURCES],
+        ),
+        ControllerCapability(
+            name="subscriber_next_hop_entries_allocated",
+            kind="tool",
+            description=(
+                "Query subscriber next-hop entries allocation for a BNG device "
+                "using `state_system_resource_usage_subscriber_next_hop_entries_allocated` "
+                "and `state_system_resource_usage_subscriber_next_hop_entries_total`. "
+                "Returns currently allocated/total counts, current/min/max utilisation (%) "
+                "device-wide (no card/fp dimension)."
+            ),
+            tags=[CapabilityTag.OBSERVABILITY, CapabilityTag.METRICS, CapabilityTag.RESOURCES],
         ),
         ControllerCapability(
             name="bng-overview",
@@ -276,13 +358,6 @@ def register_bng_resources(mcp: FastMCP, settings: Settings) -> None:
         except KubernetesClientError as exc:
             await _raise_resource_error("bng://targets/hosts", exc)
         return _serialize_targets(hosts)
-
-    @mcp.resource("bng://health/summary")
-    @mock_intercept(settings)
-    async def bng_health_summary() -> str:
-        """Real-time overall BNG health status — to be implemented."""
-        logger.info("Returning BNG health summary")
-        raise NotImplementedError("bng://health/summary is not yet implemented")
 
     # Resource templates
     # -------------------------------------------------------------------------------------------------

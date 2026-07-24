@@ -40,6 +40,6 @@ RUN chmod +x entrypoint.sh
 ENV PATH="/app/.venv/bin:$PATH"
 # ENV PYTHONPATH="/app/src"
 
-EXPOSE 8001
+EXPOSE 8088
 
 ENTRYPOINT ["./entrypoint.sh"]
