@@ -1,0 +1,52 @@
+---
+name: Test and Build mcp-controller
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+
+      - name: Install the latest version of uv
+        uses: astral-sh/setup-uv@v9.0.0
+
+      - name: Install dependencies (w/ dev)
+        run: uv sync
+
+      - name: Run tests w/o coverage
+        run: uv run pytest -v --no-cov
+
+  build-and-push:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: test
+
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
