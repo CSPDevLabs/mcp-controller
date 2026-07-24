@@ -2,6 +2,7 @@
 
 import logging
 import sys
+from datetime import datetime, timezone
 
 from mcp.server.fastmcp import FastMCP
 from mcp.server.fastmcp.exceptions import ResourceError
@@ -18,10 +19,13 @@ from mcp_controller.bng.common import (
 )
 from mcp_controller.bng.resources import BNG_MANIFEST
 from mcp_controller.bng.types import (
+    BngHealthSummary,
     DeviceCpuUsageResult,
+    DeviceHealth,
     DeviceHostsStatsResult,
     DeviceMemoryUsageResult,
     DeviceUnavailabilityResult,
+    HealthStatus,
     PolicerDirection,
     PolicersAllocatedResult,
     PolicersAllocationBySlot,
@@ -34,7 +38,7 @@ from mcp_controller.bng.types import (
     SubscriberNextHopEntriesResult,
     TargetSummary,
 )
-from mcp_controller.core.types import ErrorResponse
+from mcp_controller.core.types import ErrorResponse, MetricResult
 from mcp_controller.core.registry import ControllerManifest
 from mcp_controller.config import Settings
 from mcp_controller.core.mock import mock_intercept
@@ -42,9 +46,140 @@ from mcp_controller.core.kubernetes_client import (
     KubernetesClient,
     KubernetesClientError,
 )
-from mcp_controller.core.prometheus_client import PrometheusClient
+from mcp_controller.core.prometheus_client import (
+    PrometheusClient,
+    PrometheusClientError,
+)
 
 logger = logging.getLogger(__name__)
+
+
+# Health-summary thresholds
+# -------------------------------------------------------------------------------------------------
+
+# CPU usage (%) boundaries: >= red is red, >= yellow is yellow, else green.
+_CPU_RED_PCT = 80.0
+_CPU_YELLOW_PCT = 70.0
+
+# Memory utilisation (%) boundaries: >= red is red, >= yellow is yellow, else green.
+_MEM_RED_PCT = 85.0
+_MEM_YELLOW_PCT = 70.0
+
+# Severity ordering used to pick the worst status across signals/devices.
+_STATUS_RANK: dict[HealthStatus, int] = {"green": 0, "unknown": 1, "yellow": 2, "red": 3}
+
+
+def _worst_status(current: HealthStatus, candidate: HealthStatus) -> HealthStatus:
+    """Return the more severe of two statuses.
+
+    Ordering is `red` > `yellow` > `unknown` > `green`.
+
+    Args:
+        current: The status accumulated so far.
+        candidate: The status to compare against.
+
+    Returns:
+        The more severe `HealthStatus`.
+    """
+    return candidate if _STATUS_RANK[candidate] > _STATUS_RANK[current] else current
+
+
+def _classify(value: float | None, yellow: float, red: float) -> HealthStatus:
+    """Classify a utilisation percentage against yellow/red thresholds.
+
+    Args:
+        value: The utilisation percentage, or `None` when no data exists.
+        yellow: Inclusive lower bound for a `"yellow"` status.
+        red: Inclusive lower bound for a `"red"` status.
+
+    Returns:
+        `"unknown"` when `value` is `None`, otherwise `"green"`,
+        `"yellow"`, or `"red"`.
+    """
+    if value is None:
+        return "unknown"
+    if value >= red:
+        return "red"
+    if value >= yellow:
+        return "yellow"
+    return "green"
+
+
+async def _instant_value(prom: PrometheusClient, promql: str) -> float | None:
+    """Run an instant query and return its first sample value.
+
+    Failures (unreachable Prometheus, query errors, empty results) are
+    swallowed and reported as `None` so a single flaky device never
+    breaks the whole health summary.
+
+    Args:
+        prom: The Prometheus client instance.
+        promql: The PromQL instant-query expression.
+
+    Returns:
+        The first sample value, or `None` when unavailable.
+    """
+    try:
+        result = await prom.query(promql)
+    except PrometheusClientError as exc:
+        logger.warning("Health-summary query failed: %s (%s)", promql, exc)
+        return None
+    if isinstance(result, MetricResult) and result.series and result.series[0].samples:
+        return result.series[0].samples[0].value
+    return None
+
+
+async def _assess_device_health(prom: PrometheusClient, source: str) -> DeviceHealth:
+    """Assess a single device's health from CPU and memory instant queries.
+
+    Args:
+        prom: The Prometheus client instance.
+        source: Fully qualified `namespace/name` Prometheus `source` label.
+
+    Returns:
+        A populated `DeviceHealth` model.
+    """
+    cpu = await _instant_value(
+        prom,
+        f'state_system_cpu_summary_usage_cpu_usage{{cpu_sample_period="60",source="{source}"}}',
+    )
+    in_use = f'state_system_memory_pools_summary_total_in_use{{source="{source}"}}'
+    available = f'state_system_memory_pools_summary_available_memory{{source="{source}"}}'
+    memory = await _instant_value(
+        prom,
+        f"sum by(source) ({in_use})"
+        f" / on(source) "
+        f"(sum by(source) ({in_use}) + sum by(source) ({available}))"
+        f" * 100",
+    )
+
+    # A device reporting neither CPU nor memory is treated as unreachable.
+    if cpu is None and memory is None:
+        return DeviceHealth(
+            device=source,
+            status="red",
+            available=False,
+            cpu_usage_pct=None,
+            memory_usage_pct=None,
+            reasons=["device is not reporting CPU or memory metrics"],
+        )
+
+    cpu_status = _classify(cpu, _CPU_YELLOW_PCT, _CPU_RED_PCT)
+    mem_status = _classify(memory, _MEM_YELLOW_PCT, _MEM_RED_PCT)
+    reasons: list[str] = []
+    if cpu is not None and cpu_status in ("yellow", "red"):
+        reasons.append(f"CPU usage {cpu:.1f}% is {cpu_status}")
+    if memory is not None and mem_status in ("yellow", "red"):
+        reasons.append(f"memory utilisation {memory:.1f}% is {mem_status}")
+
+    return DeviceHealth(
+        device=source,
+        status=_worst_status(cpu_status, mem_status),
+        available=True,
+        cpu_usage_pct=cpu,
+        memory_usage_pct=memory,
+        reasons=reasons,
+    )
 
 
 def register_bng_tools(mcp: FastMCP, settings: Settings) -> None:
@@ -199,13 +334,84 @@ def register_bng_tools(mcp: FastMCP, settings: Settings) -> None:
 
     @mcp.tool()
     @mock_intercept(settings)
+    async def bng_health_summary(ctx: Context) -> BngHealthSummary:
+        """Return an aggregated real-time health summary across all BNG devices.
+
+        Lists every `NetworkDeviceTarget` and, for each, runs instant
+        queries for CPU usage (`state_system_cpu_summary_usage_cpu_usage`)
+        and memory utilisation (`in_use / (in_use + available) * 100`).
+        Each device is classified `green`/`yellow`/`red` — or `red` when
+        it is not reporting metrics — and the overall status is the worst
+        observed across all devices.
+
+        Per-device Prometheus failures are tolerated: an unreachable device
+        is reported as `red`/unavailable rather than failing the whole
+        summary.
+
+        Args:
+            ctx: MCP request context.
+
+        Returns:
+            `BngHealthSummary` with `overall_status`, `total_devices`,
+            `status_counts`, per-device `devices`, and `generated_at`.
+
+        Raises:
+            ErrorResponse: on any Kubernetes API error while listing targets.
+        """
+        logger.info("Building BNG health summary")
+        await ctx.info("Building BNG health summary across all devices")
+        try:
+            devices = await k8s.list_network_device_targets()
+        except KubernetesClientError as exc:
+            await _raise_k8s_error("bng_health_summary", exc, ctx)
+
+        assessments: list[DeviceHealth] = []
+        for target in devices:
+            if (
+                target.spec
+                and target.spec.gnmic
+                and target.spec.gnmic.enabled
+                and target.spec.gnmic.labels
+                and target.spec.gnmic.labels.get("role") == "bng"
+            ):
+                name = target.metadata.name if target.metadata else None
+                namespace = (
+                    target.metadata.namespace
+                    if target.metadata
+                    and target.metadata.namespace
+                    else settings.k8s_namespace
+                )
+                source = f"{namespace}/{name}"
+                assessments.append(await _assess_device_health(prom, source))
+
+        status_counts: dict[HealthStatus, int] = {
+            "green": 0,
+            "yellow": 0,
+            "red": 0,
+            "unknown": 0,
+        }
+        overall: HealthStatus = "unknown"
+        for index, health in enumerate[DeviceHealth](assessments):
+            status_counts[health.status] += 1
+            overall = health.status if index == 0 else _worst_status(overall, health.status)
+
+        return BngHealthSummary(
+            overall_status=overall,
+            total_devices=len(assessments),
+            status_counts=status_counts,
+            devices=assessments,
+            generated_at=datetime.now(tz=timezone.utc),
+        )
+
+    @mcp.tool()
+    @mock_intercept(settings)
     async def bng_device_unavailability_map(
         device: str, interval: str, step: str, ctx: Context, start_time: str = ""
     ) -> DeviceUnavailabilityResult:
         """Return an availability time series for a BNG device over a window.
 
-        Executes a range query with `absent_over_time()` on
-        `state_system_cpu_summary_usage_cpu_time` to produce a matrix where
+        Executes a range query with `absent_over_time()` across CPU,
+        next-hop, and interface-octets metrics to produce a matrix where
         each step is `1` (device absent) or `0` (device reporting).
 
         Args:
@@ -246,13 +452,32 @@ def register_bng_tools(mcp: FastMCP, settings: Settings) -> None:
 
         window = resolve_query_window(interval, step, device, start_time)
 
+        # label_replace(
+        #   absent_over_time(
+        #     {__name__=~"state_system_cpu_summary_usage_cpu_time|state_system_resource_usage_subscriber_next_hop_entries_total|state_router_interface_statistics_ip_in_octets", source=~".*bngt-bng1"}[$__interval]
+        #   ),
+        #   "source", "nok-bng/clab-sros-bngt-bng1", "", ""
+        # )
+        # or
+        # count by (source) (
+        #   {__name__=~"state_system_cpu_summary_usage_cpu_time|state_system_resource_usage_subscriber_next_hop_entries_total|state_router_interface_statistics_ip_in_octets", source=~".*bngt-bng1"}
+        # ) * 0
+        _unavail_metrics = (
+            "state_system_cpu_summary_usage_cpu_time|"
+            "state_system_resource_usage_subscriber_next_hop_entries_total|"
+            "state_router_interface_statistics_ip_in_octets"
+        )
         promql = (
-            f"(absent_over_time("
-            f'state_system_cpu_summary_usage_cpu_time{{source="{device}"}}'
-            f"[{window.prom_interval}]) == 1) OR "
-            f"(count by (source) ("
-            f'state_system_cpu_summary_usage_cpu_time{{source="{device}"}}'
-            f") * 0)"
+            f"label_replace("
+            f"absent_over_time("
+            f'{{__name__=~"{_unavail_metrics}", source=~".*{device}"}}[{window.prom_interval}]'
+            f"), "
+            f'"source", "{device}", "", ""'
+            f") "
+            f"or "
+            f"count by (source) ("
+            f'{{__name__=~"{_unavail_metrics}", source=~".*{device}"}}'
+            f") * 0"
         )
 
         result = await execute_range_query(

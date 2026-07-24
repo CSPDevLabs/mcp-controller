@@ -41,7 +41,7 @@ Usage
 Output: src/mcp_controller/core/k8s_types.py
 
 Re-run this script whenever a CRD schema changes to keep models in sync.
-Install dev dependencies first:  pip install -e ".[dev]"
+Install dev dependencies first:  uv sync
 """
 
 from __future__ import annotations

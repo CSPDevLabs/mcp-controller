@@ -26,21 +26,8 @@ dependencies = [
     "python-json-logger>=4.1.0",
     "rich>=14.3.3",
 ]
-
-[project.optional-dependencies]
-dev = [
-    "black",
-    "flake8",
-    "flake8-bugbear",
-    "pytest",
-    "pytest-cov",
-    "pytest-asyncio>=1.3.0",
-    "respx>=0.22.0",
-    # Code generator that converts OpenAPI/JSON Schema to Pydantic v2 models.
-    # Used by scripts/gen_k8s_types.py to produce k8s_types.py from CRD manifests.
-    "datamodel-code-generator>=0.27.0",
-    "ipython",
-]
+[tool.uv]
+required-version = ">=0.11.2"
 
 [tool.black]
 line-length = 100
@@ -59,7 +46,24 @@ source = ["mcp_controller"]
 reportUnusedFunction = "none"
 
 [dependency-groups]
+# uv installs dependency groups by default (unlike PEP 621 optional-dependencies
+# extras, which require an explicit `--extra` flag). Keeping the whole dev/test
+# toolchain here is what makes the documented `uv run pytest` workflow work with
+# no extra flags. The production Docker image opts out via `uv sync --no-dev`.
 dev = [
+    # Formatter + linters enforcing project style (black line-length 100, bugbear rules).
+    "black",
+    "flake8",
+    "flake8-bugbear",
+    # Test runner, coverage plugin, and async support (asyncio_mode="auto" needs pytest-asyncio).
+    "pytest",
+    "pytest-cov",
+    "pytest-asyncio>=1.3.0",
+    # Intercepts outbound httpx calls from the Prometheus/Loki clients in tests.
+    "respx>=0.22.0",
+    # Converts CRD OpenAPI/JSON Schema to Pydantic v2 models via scripts/gen_k8s_types.py.
+    "datamodel-code-generator>=0.27.0",
+    # Interactive REPL for local debugging.
     "ipython>=9.12.0",
 ]
 

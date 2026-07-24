@@ -92,12 +92,12 @@ BNG_MANIFEST = ControllerManifest(
             tags=[CapabilityTag.TARGETS, CapabilityTag.DISCOVERY],
         ),
         ControllerCapability(
-            name="bng://health/summary",
-            kind="resource",
+            name="bng_health_summary",
+            kind="tool",
             description=(
                 "Real-time overall BNG health status — aggregated across all "
-                "metric categories (CPU, memory, SRRP, FP resources, subscribers). "
-                "To be implemented."
+                "monitored devices from CPU usage, memory utilisation, and "
+                "device availability, with an overall worst-case status."
             ),
             tags=[CapabilityTag.OBSERVABILITY, CapabilityTag.STATUS],
         ),
@@ -176,7 +176,7 @@ BNG_MANIFEST = ControllerManifest(
             description=(
                 "Query established PPP sessions for a BNG device using "
                 "`state_subscriber_mgmt_statistics_sessions_current_value` "
-                "filtered by `sessions_counter=\"ppp-sessions-total-established\"`. "
+                'filtered by `sessions_counter="ppp-sessions-total-established"`. '
                 "Returns current count and min/max over the window."
             ),
             tags=[CapabilityTag.METRICS, CapabilityTag.SUBSCRIBER_MGMT, CapabilityTag.RESOURCES],
@@ -358,13 +358,6 @@ def register_bng_resources(mcp: FastMCP, settings: Settings) -> None:
         except KubernetesClientError as exc:
             await _raise_resource_error("bng://targets/hosts", exc)
         return _serialize_targets(hosts)
-
-    @mcp.resource("bng://health/summary")
-    @mock_intercept(settings)
-    async def bng_health_summary() -> str:
-        """Real-time overall BNG health status — to be implemented."""
-        logger.info("Returning BNG health summary")
-        raise NotImplementedError("bng://health/summary is not yet implemented")
 
     # Resource templates
     # -------------------------------------------------------------------------------------------------

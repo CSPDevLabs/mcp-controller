@@ -313,7 +313,7 @@ class PolicersAllocatedResult(BaseModel):
 
     device: str = Field(description="Device name (Prometheus `source` label).")
     direction: PolicerDirection = Field(
-        description="Policer direction: `\"ingress\"` or `\"egress\"`.",
+        description='Policer direction: `"ingress"` or `"egress"`.',
     )
     interval: str = Field(description="Lookback window that was queried.")
     step: str = Field(description="Query resolution step.")
@@ -385,7 +385,7 @@ class QueuesAllocatedResult(BaseModel):
 
     device: str = Field(description="Device name (Prometheus `source` label).")
     direction: QueuesDirection = Field(
-        description="Queues direction: `\"ingress\"` or `\"egress\"`.",
+        description='Queues direction: `"ingress"` or `"egress"`.',
     )
     interval: str = Field(description="Lookback window that was queried.")
     step: str = Field(description="Query resolution step.")
@@ -441,6 +441,63 @@ class SubscriberNextHopEntriesResult(BaseModel):
     result: MetricResult | None = Field(
         default=None,
         description="Raw Prometheus `MetricResult` matrix of utilisation (%).",
+    )
+
+
+HealthStatus = Literal["green", "yellow", "red", "unknown"]
+
+
+class DeviceHealth(BaseModel):
+    """Per-device health assessment for the BNG health summary.
+
+    Derived from instant queries on CPU usage and memory utilisation.
+    A device that is not reporting metrics is reported as `"red"` with
+    `available=False`; a device with no usable data is `"unknown"`.
+    """
+
+    device: str = Field(description="Device name (Prometheus `source` label).")
+    status: HealthStatus = Field(description="Aggregated per-device health status.")
+    available: bool = Field(
+        description="Whether the device is currently reporting metrics.",
+    )
+    cpu_usage_pct: float | None = Field(
+        default=None,
+        description="Current CPU usage (%), or `null` if no data.",
+    )
+    memory_usage_pct: float | None = Field(
+        default=None,
+        description="Current memory utilisation (%), or `null` if no data.",
+    )
+    reasons: list[str] = Field(
+        default_factory=list,
+        description="Human-readable explanations for a non-green status.",
+    )
+
+
+class BngHealthSummary(BaseModel):
+    """Aggregated real-time health status across all BNG devices.
+
+    Returned by the `bng_health_summary` tool. `overall_status` is the
+    worst status observed across all assessed devices.
+    """
+
+    overall_status: HealthStatus = Field(
+        description="Worst status across all devices (`red` > `yellow` > `green`).",
+    )
+    total_devices: int = Field(
+        default=0,
+        description="Number of BNG device targets assessed.",
+    )
+    status_counts: dict[HealthStatus, int] = Field(
+        default_factory=dict,
+        description="Count of devices in each health status.",
+    )
+    devices: list[DeviceHealth] = Field(
+        default_factory=list,
+        description="Per-device health assessments.",
+    )
+    generated_at: datetime = Field(
+        description="UTC timestamp when the summary was produced.",
     )
 
 

@@ -349,11 +349,11 @@ MCP_MOCK_DATA_RECORD=true python -m mcp_controller --config lab.yaml
 ## 9. Verification
 
 ```bash
-# Install dependencies
-pip install -e ".[dev]"
+# Install dependencies (incl. the dev/test toolchain from the default `dev` group)
+uv sync
 
 # Run tests
-pytest
+uv run pytest
 
 # Start HTTP server
 ./uv-run.sh

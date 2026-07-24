@@ -1,5 +1,82 @@
 # Change Log
 
+## 2026-07-24
+
+### Add `bng_health_summary` tool
+
+Added a fleet-wide health assessment tool. It lists every
+`NetworkDeviceTarget` and, for each, runs CPU-usage and
+memory-utilisation instant queries, classifies the device
+`green`/`yellow`/`red` (`red` when unreachable, `unknown` when no data),
+and reports an overall worst-case status. Exposed as a tool (not a
+resource) so LLM clients can invoke it directly.
+
+**Changes:**
+
+- **`bng/types.py`** -- Added the `HealthStatus` literal and the
+  `DeviceHealth` and `BngHealthSummary` response models.
+- **`bng/tools.py`** -- Added the `bng_health_summary` tool plus
+  module-level CPU/memory thresholds and helpers `_worst_status`,
+  `_classify`, `_instant_value`, and `_assess_device_health`. Per-device
+  Prometheus failures are swallowed to `unknown`/unavailable so one flaky
+  device cannot break the summary; K8s listing errors still raise a typed
+  `ErrorResponse`.
+- **`bng/resources.py`** -- Registered `bng_health_summary` in
+  `BNG_MANIFEST` as a `tool` capability (tags `OBSERVABILITY`, `STATUS`).
+- **`tests/bng/test_bng_health_summary.py`** -- Added 14 tests covering
+  per-device classification (green/yellow/red/unknown, boundary values,
+  partial data), fleet worst-case aggregation and status counts, the
+  empty-device and no-op query cases, `source`-label resolution (gnmic
+  `role=bng` vs settings-namespace fallback), Kubernetes error
+  propagation, Prometheus-failure tolerance, and the manifest contract.
+
+### Fix `uv run pytest` — move dev toolchain into the default dependency group
+
+`uv run pytest` failed with `Failed to spawn: pytest` on a freshly
+resolved environment: the test/lint tools were declared only in the
+PEP 621 `[project.optional-dependencies].dev` **extra**, which `uv run`
+does not install unless `--extra dev` is passed. This was also
+inconsistent with the `Dockerfile`, which excludes dev tooling via
+`uv sync --no-dev` (a dependency-group flag).
+
+**Changes:**
+
+- **`pyproject.toml`** -- Moved the full dev/test toolchain (`black`,
+  `flake8`, `flake8-bugbear`, `pytest`, `pytest-cov`, `pytest-asyncio`,
+  `respx`, `datamodel-code-generator`, `ipython`) from
+  `[project.optional-dependencies].dev` into `[dependency-groups].dev`,
+  which uv installs by default. Removed the now-redundant
+  optional-dependencies extra.
+- **`uv.lock`** -- Regenerated to reflect the group move.
+- **`docs/arch_and_concepts.md`, `docs/mcp-server-inspector-setup.md`,
+  `scripts/gen_k8s_types.py`** -- Replaced the obsolete
+  `pip install -e ".[dev]"` instructions with `uv sync`.
+
+### Update `bng_device_unavailability_map` metrics
+
+Broadened the availability signal from a single CPU metric to a
+multi-metric presence check, and made device matching more robust.
+
+**Changes:**
+
+- **`bng/tools.py`** -- Reworked the `bng_device_unavailability_map`
+  PromQL:
+  - The `absent_over_time()` selector now spans three metrics via a
+    `__name__=~` regex — `state_system_cpu_summary_usage_cpu_time`,
+    `state_system_resource_usage_subscriber_next_hop_entries_total`, and
+    `state_router_interface_statistics_ip_in_octets` — so a device is
+    only flagged absent when none of these are reporting.
+  - Device matching changed from an exact `source="…"` label to a
+    `source=~".*<device>"` regex, wrapped in `label_replace(...)` to
+    normalise the `source` label back to the fully-qualified
+    `namespace/name` value.
+  - Replaced the `(absent_over_time(...) == 1) OR (count … * 0)`
+    expression with `label_replace(absent_over_time(...)) or count by
+    (source) (...) * 0`, keeping the `1` (absent) / `0` (reporting)
+    step semantics.
+  - Updated the docstring to describe the CPU / next-hop /
+    interface-octets coverage.
+
 ## 2026-05-18
 
 ### BNG resource-usage metric tools and shared query-window helper
