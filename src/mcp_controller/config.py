@@ -1,6 +1,7 @@
 """Configuration management using pydantic-settings BaseSettings."""
 
-from typing import Literal, Tuple, Type
+import os
+from typing import Any, Literal, Tuple, Type
 
 from pydantic import Field
 from pydantic_settings import (
@@ -52,6 +53,20 @@ class Settings(BaseSettings):
         extra="ignore",
         yaml_file=None,  # no YAML file by default; set to a path to enable
     )
+
+    def __init__(
+        self,
+        yaml_file: str | os.PathLike[str] | None = None,
+        **kwargs: Any,
+    ) -> None:
+        """Initialise settings, optionally loading from a YAML file.
+
+        Args:
+            yaml_file: Path to a YAML config file. When provided, it is forwarded
+                to `YamlConfigSettingsSource` via `settings_customise_sources`.
+            **kwargs: Field overrides passed through to `BaseSettings`.
+        """
+        super().__init__(yaml_file=yaml_file, **kwargs)  # type: ignore[call-arg]
 
     @classmethod
     def settings_customise_sources(
