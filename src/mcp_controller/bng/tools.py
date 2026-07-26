@@ -377,8 +377,7 @@ def register_bng_tools(mcp: FastMCP, settings: Settings) -> None:
                 name = target.metadata.name if target.metadata else None
                 namespace = (
                     target.metadata.namespace
-                    if target.metadata
-                    and target.metadata.namespace
+                    if target.metadata and target.metadata.namespace
                     else settings.k8s_namespace
                 )
                 source = f"{namespace}/{name}"
@@ -454,13 +453,15 @@ def register_bng_tools(mcp: FastMCP, settings: Settings) -> None:
 
         # label_replace(
         #   absent_over_time(
-        #     {__name__=~"state_system_cpu_summary_usage_cpu_time|state_system_resource_usage_subscriber_next_hop_entries_total|state_router_interface_statistics_ip_in_octets", source=~".*bngt-bng1"}[$__interval]
+        #     {__name__=~"state_system_cpu_summary_usage_cpu_time|state_system_resource_usage_subscriber_next_hop_entries_total|
+        # state_router_interface_statistics_ip_in_octets", source=~".*bngt-bng1"}[$__interval]
         #   ),
         #   "source", "nok-bng/clab-sros-bngt-bng1", "", ""
         # )
         # or
         # count by (source) (
-        #   {__name__=~"state_system_cpu_summary_usage_cpu_time|state_system_resource_usage_subscriber_next_hop_entries_total|state_router_interface_statistics_ip_in_octets", source=~".*bngt-bng1"}
+        #   {__name__=~"state_system_cpu_summary_usage_cpu_time|state_system_resource_usage_subscriber_next_hop_entries_total|
+        # state_router_interface_statistics_ip_in_octets", source=~".*bngt-bng1"}
         # ) * 0
         _unavail_metrics = (
             "state_system_cpu_summary_usage_cpu_time|"

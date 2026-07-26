@@ -33,8 +33,17 @@ COPY --from=builder /app/.venv .venv
 COPY entrypoint.sh entrypoint.sh
 RUN chmod +x entrypoint.sh
 
-# # Copy application source so the entrypoint can locate it
-# COPY src/ src/
+# Environment variable defaults (mapped to src/mcp_controller/config.py)
+# Prefixed with MCP_ as defined in Settings.model_config
+ENV MCP_PORT=8088 \
+    MCP_HOST=0.0.0.0 \
+    MCP_LOG_LEVEL=INFO \
+    MCP_PROMETHEUS_URL=http://prometheus:9090 \
+    MCP_LOKI_URL=http://loki:3100 \
+    MCP_K8S_NAMESPACE=nok-bng \
+    MCP_TLS_SKIP_VERIFY=false \
+    MCP_ENVIRONMENT=production \
+    MCP_MOCK_DATA_DIR=/app/tests/mocks/data
 
 # Ensure the venv Python is used by default.
 ENV PATH="/app/.venv/bin:$PATH"
