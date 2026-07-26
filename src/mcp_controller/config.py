@@ -112,7 +112,7 @@ class Settings(BaseSettings):
         description="HTTP server bind host",
     )
     port: int = Field(
-        default=8000,
+        default=8088,
         description="HTTP server bind port",
     )
     log_level: LogLevel = Field(
