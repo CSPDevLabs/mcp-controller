@@ -10,7 +10,7 @@ packages = ["src/mcp_controller"]
 
 [project]
 name = "mcp-controller"
-version = "0.1.0"
+version = "1.0.0"
 description = "MCP Controller"
 requires-python = ">=3.12"
 dependencies = [
