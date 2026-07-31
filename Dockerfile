@@ -24,6 +24,12 @@ RUN uv build --wheel --out-dir /tmp/dist && \
 # ---------- runtime stage ----------
 FROM python:3.12-slim
 
+# Non-root UID/GID 1000 — numeric for Kubernetes `runAsNonRoot`, and matches the
+# typical developer UID so a bind-mounted `~/.kube/config` (mode 0600) is readable
+# under docker-compose without overriding `user:`.
+ARG APP_UID=1000
+ARG APP_GID=1000
+
 WORKDIR /app
 
 # Copy the virtual environment from the builder.
@@ -31,7 +37,11 @@ COPY --from=builder /app/.venv .venv
 
 # Copy the entrypoint script.
 COPY entrypoint.sh entrypoint.sh
-RUN chmod +x entrypoint.sh
+RUN chmod +x entrypoint.sh && \
+    groupadd --gid "${APP_GID}" app && \
+    useradd --uid "${APP_UID}" --gid app --create-home --home-dir /home/app --shell /bin/bash app && \
+    mkdir -p /home/app/.kube && \
+    chown -R app:app /app /home/app
 
 # Environment variable defaults (mapped to src/mcp_controller/config.py)
 # Prefixed with MCP_ as defined in Settings.model_config
@@ -43,11 +53,14 @@ ENV MCP_PORT=8088 \
     MCP_K8S_NAMESPACE=nok-bng \
     MCP_TLS_SKIP_VERIFY=false \
     MCP_ENVIRONMENT=production \
-    MCP_MOCK_DATA_DIR=/app/tests/mocks/data
+    MCP_MOCK_DATA_DIR=/app/tests/mocks/data \
+    HOME=/home/app
 
 # Ensure the venv Python is used by default.
 ENV PATH="/app/.venv/bin:$PATH"
 # ENV PYTHONPATH="/app/src"
+
+USER app
 
 EXPOSE 8088
 
