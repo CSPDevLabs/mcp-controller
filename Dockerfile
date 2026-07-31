@@ -60,7 +60,8 @@ ENV MCP_PORT=8088 \
 ENV PATH="/app/.venv/bin:$PATH"
 # ENV PYTHONPATH="/app/src"
 
-USER app
+# Numeric UID required: Kubernetes `runAsNonRoot` cannot verify a named USER.
+USER ${APP_UID}:${APP_GID}
 
 EXPOSE 8088
 
