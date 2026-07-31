@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 BNG_MANIFEST = ControllerManifest(
     controller_id=ControllerId.BNG,
-    version="1.0.1",
+    version="1.0.2",
     display_name="Nokia BNG Observability MCP Controller",
     network_function="bng",
     description=(
