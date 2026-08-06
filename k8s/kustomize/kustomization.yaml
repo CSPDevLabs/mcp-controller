@@ -1,0 +1,25 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: nok-base
+resources:
+- serviceaccount.yaml
+- rbac.yaml
+- deployment.yaml
+- service.yaml
+# - ingress.yaml
+images:
+- name: mcp-controller
+  newName: ghcr.io/cspdevlabs/mcp-controller
+  newTag: 1.0.2
+
+# Parse .env as KEY=VALUE entries so envFrom can inject them as container env vars.
+configMapGenerator:
+- envs:
+  - .env
+  name: mcp-controller-env
+labels:
+- includeSelectors: true
+  pairs:
+    app.kubernetes.io/app: mcp-controller
+    app.kubernetes.io/component: mcp-controller
+    app.kubernetes.io/name: mcp-controller
