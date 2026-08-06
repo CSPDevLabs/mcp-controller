@@ -1,0 +1,27 @@
+# Optional — cluster-specific. Rename to ingress.yaml and adjust
+# `ingressClassName` / host / TLS to match your cluster before applying.
+#
+# TLS is issued automatically by cert-manager: the `cluster-issuer` annotation
+# plus the `tls:` block below make cert-manager's ingress-shim create a
+# Certificate and populate the `nok-eac-roadmap-tls` Secret in this namespace,
+# then auto-renew it. The issuer itself is defined in
+# `k8s-infra/cert-issuer.yaml` (apply that first).
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: mcp-controller
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: mcp-bng.nok.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: mcp-controller
+                port:
+                  number: 8088
