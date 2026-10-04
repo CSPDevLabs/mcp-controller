@@ -48,12 +48,13 @@ RUN chmod +x entrypoint.sh && \
 ENV MCP_PORT=8088 \
     MCP_HOST=0.0.0.0 \
     MCP_LOG_LEVEL=INFO \
-    MCP_PROMETHEUS_URL=http://prometheus:9090 \
-    MCP_LOKI_URL=http://loki:3100 \
+    MCP_PROMETHEUS_URL=http://localhost:9090 \
+    MCP_LOKI_URL=http://localhost:3100 \
     MCP_K8S_NAMESPACE=nok-bng \
     MCP_TLS_SKIP_VERIFY=false \
     MCP_ENVIRONMENT=production \
     MCP_MOCK_DATA_DIR=/app/tests/mocks/data \
+    MCP_ALERTS_WRITE_ENABLED=false \
     HOME=/home/app
 
 # Ensure the venv Python is used by default.

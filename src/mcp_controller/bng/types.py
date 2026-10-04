@@ -232,7 +232,7 @@ class PppSessionsTotalEstablishedResult(BaseModel):
     sourced from the SROS xpath:
 
     - `/state/subscriber-mgmt/statistics/sessions[counter=ppp-sessions-total-established]/current-value`
-    """
+    """  # noqa: E501
 
     device: str = Field(description="Device name (Prometheus `source` label).")
     interval: str = Field(description="Lookback window that was queried.")
@@ -421,7 +421,7 @@ class SubscriberNextHopEntriesResult(BaseModel):
     )
     currently_total: float | None = Field(
         default=None,
-        description="Current total subscriber next-hop entries capacity (instant query), or `null`.",
+        description="Current total subscriber next-hop entries capacity (instant query), or `null`.",  # noqa: E501
     )
     currently_pct: float | None = Field(
         default=None,
@@ -498,6 +498,77 @@ class BngHealthSummary(BaseModel):
     )
     generated_at: datetime = Field(
         description="UTC timestamp when the summary was produced.",
+    )
+
+
+class MetricsAvailable(BaseModel):
+    """Catalogue of metric names currently known to Prometheus.
+
+    Backs the `bng://metrics/available` resource — the authoritative
+    allow-list for writing PromQL. The LLM must not invent a metric name;
+    every name used in a rule's `expr` should appear in one of these lists.
+    Names are split into categories so rule-generated and scrape
+    housekeeping series are not mistaken for a device signal:
+
+    - `device_metrics`: telemetry scraped from network devices.
+    - `rule_generated_metrics`: output of existing alerting rules
+      (`ALERTS`, `ALERTS_FOR_STATE`).
+    - `scrape_meta_metrics`: Prometheus's own scrape housekeeping
+      (`up`, `scrape_*`).
+    """
+
+    device_metrics: list[str] = Field(
+        default_factory=list,
+        description="Metric names scraped from network devices — safe to use in a rule `expr`.",
+    )
+    rule_generated_metrics: list[str] = Field(
+        default_factory=list,
+        description="Metric names produced by existing alerting rules (e.g. `ALERTS`), "
+        "not raw device telemetry.",
+    )
+    scrape_meta_metrics: list[str] = Field(
+        default_factory=list,
+        description="Prometheus scrape housekeeping metrics (`up`, `scrape_*`), "
+        "not a device signal.",
+    )
+    total_count: int = Field(
+        default=0,
+        description="Total number of distinct metric names across all categories.",
+    )
+
+
+class AlertRuleApplyResult(BaseModel):
+    """Result of applying a `PrometheusRule` manifest.
+
+    Returned by the `create_prometheus_alert_rule` tool. `matches_rule_selector`
+    reports whether the applied object will actually be evaluated by any
+    `Prometheus` instance in the cluster — a rule can be accepted by the API
+    server and then silently never evaluated if its labels or namespace don't
+    match any instance's `ruleSelector` / `ruleNamespaceSelector`.
+    """
+
+    name: str = Field(description="`metadata.name` of the applied `PrometheusRule`.")
+    namespace: str = Field(description="`metadata.namespace` of the applied `PrometheusRule`.")
+    labels: dict[str, str] = Field(
+        default_factory=dict,
+        description="`metadata.labels` of the applied `PrometheusRule`.",
+    )
+    groups: list[str] = Field(
+        default_factory=list,
+        description="Names of the rule groups applied.",
+    )
+    rules_applied: int = Field(
+        default=0,
+        description="Total number of alerting rules applied across all groups.",
+    )
+    matches_rule_selector: bool = Field(
+        description="Whether at least one Prometheus instance's `ruleSelector` "
+        "(and namespace scoping) matches this object — i.e. whether it will "
+        "actually be evaluated.",
+    )
+    warnings: list[str] = Field(
+        default_factory=list,
+        description="Non-fatal issues, e.g. labels not matching any `ruleSelector`.",
     )
 
 

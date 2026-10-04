@@ -1,0 +1,88 @@
+[
+  {
+    "apiVersion": "monitoring.coreos.com/v1",
+    "kind": "PrometheusRule",
+    "metadata": {
+      "name": "system-resource-alerts",
+      "namespace": "nok-bng",
+      "labels": {
+        "role": "alert-rules"
+      },
+      "annotations": {},
+      "uid": "cccc-dddd-eeee-0001",
+      "resourceVersion": "610000",
+      "creationTimestamp": "2026-04-20T09:00:00Z"
+    },
+    "spec": {
+      "groups": [
+        {
+          "name": "system-usage",
+          "rules": [
+            {
+              "alert": "HighCpuUsage",
+              "expr": "state_system_cpu_summary_usage_cpu_usage > 12",
+              "for": "1m",
+              "labels": {
+                "severity": "warning"
+              },
+              "annotations": {
+                "summary": "High CPU usage on {{ $labels.source }}",
+                "description": "CPU usage is at {{ $value }}% (threshold 12%)"
+              }
+            },
+            {
+              "alert": "HighMemoryUsage",
+              "expr": "(state_system_memory_pools_summary_total_in_use / state_system_memory_pools_summary_available_memory) * 100 > 2",
+              "for": "1m",
+              "labels": {
+                "severity": "warning"
+              },
+              "annotations": {
+                "summary": "High Memory usage on {{ $labels.source }}",
+                "description": "Memory utilization is at {{ $value }}% (threshold 2%)"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "apiVersion": "monitoring.coreos.com/v1",
+    "kind": "PrometheusRule",
+    "metadata": {
+      "name": "network-baseline-alerts",
+      "namespace": "nok-bng",
+      "labels": {
+        "role": "alert-rules",
+        "kustomize.toolkit.fluxcd.io/name": "prometheus-rules",
+        "kustomize.toolkit.fluxcd.io/namespace": "flux-system"
+      },
+      "annotations": {},
+      "uid": "cccc-dddd-eeee-0002",
+      "resourceVersion": "610001",
+      "creationTimestamp": "2026-04-15T16:55:34Z"
+    },
+    "spec": {
+      "groups": [
+        {
+          "name": "device-availability",
+          "rules": [
+            {
+              "alert": "BngDeviceUnreachable",
+              "expr": "absent_over_time(state_system_cpu_summary_usage_cpu_usage{source=\"nok-bng/clab-sros-bngt-bng1\"}[10m])",
+              "for": "2m",
+              "labels": {
+                "severity": "critical"
+              },
+              "annotations": {
+                "summary": "BNG device {{ $labels.source }} is unreachable",
+                "description": "No CPU telemetry received for 10 minutes."
+              }
+            }
+          ]
+        }
+      ]
+    }
+  }
+]

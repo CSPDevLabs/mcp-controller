@@ -13,7 +13,7 @@ The design must also support future controllers for other network functions (SeG
 **Recommended: Option C** — three-tier exposure.
 
 | Layer | Purpose | Example |
-|-------|---------|---------|
+| ------- | --------- | --------- |
 | **Resources** | Orientation & discovery — what this controller is, what it monitors | `bng://manifest`, `bng://targets`, `bng://health/summary` |
 | **Resource Templates** (parameterized) | Data access — fetch metrics/logs/state by device and time range | `bng://metrics/cpu/{source}`, `bng://logs/syslog/{source}`, `bng://state/srrp/{source}` |
 | **Tools** | Intelligence — analysis, correlation, capacity planning | `assess_bng_health`, `analyze_srrp_stability`, `forecast_capacity`, `correlate_events`, `compare_bng_pair` |
@@ -24,21 +24,19 @@ The design must also support future controllers for other network functions (SeG
 ## 2. Static Resources (7)
 
 | URI | Description | Implemented |
-|-----|-------------|:-----------:|
+| ----- | ------------- | :-----------: |
 | `bng://manifest` | Controller manifest: capabilities, version, dependencies | Yes |
 | `bng://targets` | All monitored BNG targets (devices and hosts) — name, address, hostname, kind, namespace | Yes |
 | `bng://targets/devices` | All `NetworkDeviceTarget` CRs with full spec and status | Yes |
 | `bng://targets/hosts` | All `NetworkHostTarget` CRs with full spec and status | Yes |
-| `bng://health/summary` | Real-time overall BNG health (aggregated from all metrics) | No |
-| `bng://sme/threshold_policies` | Threshold policies (configurable) for BNG health | No |
-| `bng://sme/correlation_rules` | Correlation rules (configurable) for BNG health | No |
-| `bng://sme/alerts` | Active alerts (configurable) for BNG health, ideally it must configure necessary alerts in Prometheus Alertmanager | No |
-| `bng://sme/recommended_actions` | Recommended actions (configurable) for BNG health, not sure about this one | No |
+| `bng://health/summary` | Real-time overall BNG health (aggregated from all metrics) | Yes |
+| `bng://alerts/configured` | Currently configured `PrometheusRule` objects across namespaces | Yes |
+| `bng://metrics/available` | Metric names available in the Prometheus instance — the authoritative catalogue for writing PromQL, separating device telemetry from rule-generated (`ALERTS`) and scrape meta metrics | Yes |
 
-## 3. Resource Templates (10)
+## 3. Resource Templates (11)
 
 | URI Template | Description | Implemented |
-|---|---|:-----------:|
+| --- | --- | :-----------: |
 | `bng://targets/devices/{namespace}` | `NetworkDeviceTarget` CRs filtered by Kubernetes namespace | Yes |
 | `bng://targets/hosts/{namespace}` | `NetworkHostTarget` CRs filtered by Kubernetes namespace | Yes |
 | `bng://metrics/cpu/{source}` | CPU usage (sample_period=60) | No |
@@ -49,11 +47,12 @@ The design must also support future controllers for other network functions (SeG
 | `bng://metrics/traffic/{source}` | Port in/out octets and errors (rate-converted) | No |
 | `bng://logs/syslog/{source}` | Recent syslog events from Loki | No |
 | `bng://state/srrp/{source}` | SRRP oper-state changes from gNMI (gnmic-state job) | No |
+| `bng://alerts/configured/{namespace}` | Currently configured `PrometheusRule` objects filtered by Kubernetes namespace | Yes |
 
-## 4. Tools (8)
+## 4. Tools (10)
 
 | Tool | Input | What it does | Implemented |
-|------|-------|--------------|:-----------:|
+| ------ | ------- | -------------- | :-----------: |
 | `bng_targets_by_label` | `{label_selector: str}` | Return BNG targets filtered by a K8s label selector, e.g. `role=bng` or `env=prod,role=bng` | Yes |
 | `read_bng_manifest` | — | Return the full BNG controller manifest (identity, capabilities, dependencies, data sources). Entry point for LLM discovery | Yes |
 | `discover_bng_capabilities` | — | Discover all BNG capabilities grouped by kind (`resource`, `resource_template`, `tool`, `prompt`) with descriptions and tags | Yes |
@@ -63,6 +62,7 @@ The design must also support future controllers for other network functions (SeG
 | `forecast_capacity` | `{source: str, category: str}` | Capacity trend for policers/queues/SAP/next-hops. Linear regression to project exhaustion timeline | No |
 | `correlate_events` | `{source: str, range?: str}` | Cross-correlates syslog, SRRP state changes, CPU spikes, subscriber drops within a time window | No |
 | `compare_bng_pair` | `{source_a: str, source_b: str}` | Compares bng1 vs bng2 across all metrics. Highlights asymmetries (load skew, resource skew, SRRP role mismatch) | No |
+| `create_prometheus_alert_rule` | `{manifest: str}` | Create or replace a `PrometheusRule` object holding alerting rules, evaluated by the `Prometheus` instance whose `ruleSelector` matches its labels. Recording rules are rejected; gated by `alerts_write_enabled` (default off) | Yes |
 
 ## 5. Multi-Controller Data Model
 
@@ -262,6 +262,8 @@ MCP Prompts guide the LLM through structured diagnostic workflows using resource
 | `check_redundancy` | `source: str` | SRRP redundancy diagnostic: "Analyze SRRP state for {source}. Read `bng://metrics/srrp/{source}` and `bng://logs/srrp-events/{source}`. Check for flapping, adv errors, asymmetric roles. Use `analyze_srrp_stability` and `compare_bng_pair`." |
 | `capacity_review` | `source: str` | Resource capacity assessment: "Review capacity for {source}. Check FP policers, queues, SAP instances, next-hop entries via `bng://metrics/resources/{source}`. Flag anything >70%. Use `forecast_capacity` for trend projections." |
 | `subscriber_diagnostics` | `source: str` | Subscriber health check: "Examine subscriber state on {source}. Read `bng://metrics/subscribers/{source}` for session counts and host allocation. Cross-reference with CPU, memory, and FP resource pressure." |
+| `bng-add-alert-rule` | `objective: str` | Authoring workflow for a new alerting `PrometheusRule` — assembles the live CRD `spec` schema, the Prometheus instance in the controller's configured namespace (required labels, namespace scope, evaluation interval), a PromQL cheat sheet, and the canonical worked example, then instructs the LLM to call `create_prometheus_alert_rule`. **Implemented.** |
+| `bng-get-alert-rules` | `namespace: str = ""` | Review workflow — points the LLM at `bng://alerts/configured` (or the namespaced URI) and explains how to tell rules that are actively evaluated from ones that are deployed but inert due to a label/namespace mismatch. **Implemented.** |
 
 Prompts live in `bng/prompts.py` and are registered on the MCP server alongside resources and tools.
 
@@ -272,7 +274,7 @@ Prompts live in `bng/prompts.py` and are registered on the MCP server alongside 
 ### Threshold Policies
 
 | Metric | Green | Yellow | Red | Context |
-|--------|-------|--------|-----|---------|
+| -------- | ------- | -------- | ----- | --------- |
 | CPU usage | 0-60% | 60-80% | 80-100% | >80% can delay SRRP adverts and subscriber auth |
 | Memory | 0-70% | 70-85% | 85-100% | Exhaustion blocks session establishment |
 | SRRP flap rate | 0-1/hr | 1-5/hr | >5/hr | Flapping causes subscriber micro-interruptions |
@@ -297,7 +299,7 @@ every resource, tool, and completion handler.  In normal mode the decorator is a
 **no-op** — the unwrapped function is returned directly with zero runtime overhead.
 
 | Mode | Flag / env var | Behaviour |
-|------|----------------|-----------|
+| ------ | ---------------- | ----------- |
 | Normal | — | Decorator is a no-op; real backends are called |
 | Record | `--mock-data-record` / `MCP_MOCK_DATA_RECORD=true` | Calls real backend, saves args + result to `tests/mocks/data/<handler>.json` |
 | Replay | `--mock` / `MCP_MOCK=true` | Returns pre-recorded response; handler body never executes, no backend connections |
@@ -417,3 +419,22 @@ Both are declared in `BNG_MANIFEST` so they appear in capability discovery.
 
 - MCP client may be able to generate appropriate UI for the user based on the received LLM reply / requested tools to use.
 - UI elements are driven by pydamtic models and schemas.
+
+### Deferred from Prometheus Alert Rules
+
+See [docs/feat/prometheus_rules.md](feat/prometheus_rules.md) for the full design.
+
+- **Live PromQL validation** — `expr` is not evaluated against Prometheus before
+  apply; only the CRD schema (via dry-run) is checked. On hold pending
+  `PrometheusClientError` carrying the `errorType` field from the response body.
+- **Delete tool** — no `delete_prometheus_alert_rule`; the LLM can create rules
+  it cannot remove via MCP.
+- **GitOps write path** — the tool writes directly to the API server; emitting
+  a reviewed manifest or opening a Gitea pull request so Flux applies it is a
+  possible safer alternative for production, not implemented.
+- **Readiness probe integration** — `kubernetes_unreachable` errors are
+  reported per-call but do not yet flip the server's readiness state.
+- **`scripts/gen_k8s_types.py` seed support** — `PrometheusRule` and
+  `Prometheus` are hand-maintained in `core/k8s_types.py` (see the module's
+  header comment) rather than generated from the live CRD; migrating them into
+  the generator's seed system is a separate follow-up PR.

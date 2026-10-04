@@ -134,3 +134,10 @@ class Settings(BaseSettings):
         default="INFO",
         description="Logging level",
     )
+    alerts_write_enabled: bool = Field(
+        default=False,
+        description="Enable `create_prometheus_alert_rule` to write PrometheusRule "
+        "objects to the cluster. Defaults to False so the write path — the only "
+        "mutating capability in the BNG controller — is opt-in per deployment; "
+        "read resources and prompts keep working regardless of this flag.",
+    )

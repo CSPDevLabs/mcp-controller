@@ -1,0 +1,25 @@
+[
+  {
+    "apiVersion": "monitoring.coreos.com/v1",
+    "kind": "Prometheus",
+    "metadata": {
+      "name": "bng-tel-prom",
+      "namespace": "nok-bng",
+      "labels": {},
+      "annotations": {},
+      "uid": "eeee-ffff-0000-0001",
+      "resourceVersion": "500000",
+      "creationTimestamp": "2026-01-10T08:00:00Z"
+    },
+    "spec": {
+      "ruleSelector": {
+        "matchLabels": {
+          "role": "alert-rules"
+        }
+      },
+      "ruleNamespaceSelector": null,
+      "evaluationInterval": "30s",
+      "scrapeInterval": "15s"
+    }
+  }
+]

@@ -4,9 +4,12 @@ import logging
 import sys
 from datetime import datetime, timezone
 
+import yaml
 from mcp.server.fastmcp import FastMCP
 from mcp.server.fastmcp.exceptions import ResourceError
 from mcp.server.fastmcp.server import Context
+from mcp.types import ToolAnnotations
+from pydantic import ValidationError
 
 from mcp_controller.bng.common import (
     _raise_k8s_error,
@@ -16,9 +19,11 @@ from mcp_controller.bng.common import (
     execute_range_query,
     prepare_device,
     resolve_query_window,
+    rule_matches_any_prometheus,
 )
 from mcp_controller.bng.resources import BNG_MANIFEST
 from mcp_controller.bng.types import (
+    AlertRuleApplyResult,
     BngHealthSummary,
     DeviceCpuUsageResult,
     DeviceHealth,
@@ -38,6 +43,7 @@ from mcp_controller.bng.types import (
     SubscriberNextHopEntriesResult,
     TargetSummary,
 )
+from mcp_controller.core.k8s_types import PrometheusRule
 from mcp_controller.core.types import ErrorResponse, MetricResult
 from mcp_controller.core.registry import ControllerManifest
 from mcp_controller.config import Settings
@@ -45,6 +51,7 @@ from mcp_controller.core.mock import mock_intercept
 from mcp_controller.core.kubernetes_client import (
     KubernetesClient,
     KubernetesClientError,
+    KubernetesFluxManagedError,
 )
 from mcp_controller.core.prometheus_client import (
     PrometheusClient,
@@ -332,6 +339,177 @@ def register_bng_tools(mcp: FastMCP, settings: Settings) -> None:
                 uri=uri,
             ) from exc
 
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Create or replace a Prometheus alert rule",
+            readOnlyHint=False,
+            idempotentHint=True,
+        )
+    )
+    @mock_intercept(settings)
+    async def create_prometheus_alert_rule(manifest: str, ctx: Context) -> AlertRuleApplyResult:
+        """Create or replace an alerting `PrometheusRule` object in Kubernetes.
+
+        Accepts a full `PrometheusRule` manifest as a YAML or JSON string,
+        validates it, and applies it to the cluster. Alerting rules only —
+        any rule using `record` instead of `alert` is rejected. Call the
+        `bng-add-alert-rule` prompt first for schema, selector, and PromQL
+        guidance, and a complete worked example.
+
+        Validation runs in order and stops at the first failure:
+
+        1. Writes must be enabled (`Settings.alerts_write_enabled`) —
+           otherwise `write_disabled`.
+        2. `manifest` must parse as YAML/JSON with `apiVersion` and
+           `kind: PrometheusRule`, and validate against the `PrometheusRule`
+           model — otherwise `invalid_manifest`.
+        3. No rule may use `record` — otherwise `recording_rule_rejected`.
+        4. A missing `metadata.namespace` defaults to `Settings.k8s_namespace`.
+        5. A dry-run create validates field names against the live API
+           server (`fieldValidation=Strict`), catching typos before anything
+           is written.
+        6. If an object with the same name already exists and carries
+           Flux-managed labels (`kustomize.toolkit.fluxcd.io/*`), the write
+           is refused with `flux_managed_conflict`. Otherwise the object is
+           created, or deleted and recreated to replace an existing
+           non-Flux object.
+
+        Labels are applied exactly as given — a missing label required by a
+        `Prometheus` `ruleSelector` (e.g. `role: alert-rules`) is never
+        auto-injected; a warning is returned instead so the caller can fix
+        the manifest.
+
+        Args:
+            manifest: Full `PrometheusRule` manifest as a YAML or JSON string.
+            ctx: MCP request context.
+
+        Returns:
+            `AlertRuleApplyResult` with the applied name/namespace/labels,
+            rule-group summary, whether any `Prometheus` instance's
+            `ruleSelector` matches, and any warnings.
+
+        Raises:
+            ErrorResponse: `write_disabled`, `invalid_manifest`,
+                `recording_rule_rejected`, `flux_managed_conflict`, or any
+                Kubernetes API error.
+        """
+        logger.info(
+            "create_prometheus_alert_rule: alerts_write_enabled=%s",
+            settings.alerts_write_enabled,
+        )
+
+        if not settings.alerts_write_enabled:
+            detail = (
+                "Alert rule writes are disabled. Set alerts_write_enabled "
+                "(MCP_ALERTS_WRITE_ENABLED=true) to enable this tool."
+            )
+            logger.error("create_prometheus_alert_rule: write_disabled — %s", detail)
+            await ctx.error("create_prometheus_alert_rule: writes are disabled")
+            raise ErrorResponse(error="write_disabled", detail=detail)
+
+        try:
+            parsed = yaml.safe_load(manifest)
+        except yaml.YAMLError as exc:
+            detail = f"Could not parse manifest as YAML/JSON: {exc}"
+            logger.error("create_prometheus_alert_rule: invalid_manifest — %s", detail)
+            raise ErrorResponse(error="invalid_manifest", detail=detail) from exc
+
+        if not isinstance(parsed, dict):
+            detail = f"Manifest must be a YAML/JSON object, got {type(parsed).__name__}"
+            logger.error("create_prometheus_alert_rule: invalid_manifest — %s", detail)
+            raise ErrorResponse(error="invalid_manifest", detail=detail)
+        if parsed.get("kind") != "PrometheusRule":
+            detail = f"Expected kind 'PrometheusRule', got {parsed.get('kind')!r}"
+            logger.error("create_prometheus_alert_rule: invalid_manifest — %s", detail)
+            raise ErrorResponse(error="invalid_manifest", detail=detail)
+        if not parsed.get("apiVersion"):
+            detail = "Manifest is missing 'apiVersion'"
+            logger.error("create_prometheus_alert_rule: invalid_manifest — %s", detail)
+            raise ErrorResponse(error="invalid_manifest", detail=detail)
+
+        try:
+            rule = PrometheusRule.model_validate(parsed)
+        except ValidationError as exc:
+            detail = f"PrometheusRule manifest failed validation: {exc}"
+            logger.error("create_prometheus_alert_rule: invalid_manifest — %s", detail)
+            raise ErrorResponse(error="invalid_manifest", detail=detail) from exc
+
+        groups = rule.spec.groups if rule.spec else []
+        recording_rules = [r.record for g in groups for r in g.rules if r.record]
+        if recording_rules:
+            detail = f"Recording rules are not supported (alerting only): {recording_rules}"
+            logger.error("create_prometheus_alert_rule: recording_rule_rejected — %s", detail)
+            raise ErrorResponse(error="recording_rule_rejected", detail=detail)
+
+        name = rule.metadata.name if rule.metadata else None
+        if not name:
+            detail = "metadata.name is required"
+            logger.error("create_prometheus_alert_rule: invalid_manifest — %s", detail)
+            raise ErrorResponse(error="invalid_manifest", detail=detail)
+        namespace = (
+            rule.metadata.namespace if rule.metadata and rule.metadata.namespace else ""
+        ) or settings.k8s_namespace
+        labels = rule.metadata.labels if rule.metadata and rule.metadata.labels else {}
+
+        # Re-serialize the validated model (aliases restored, e.g. `for`) with
+        # the resolved namespace, so the API receives exactly what was checked.
+        # `ObjectMeta` defaults these server-managed fields to `""` rather than
+        # `None`, so `exclude_none` does not drop them; an empty
+        # `creationTimestamp` fails to decode as a Go `metav1.Time` server-side.
+        body = rule.model_dump(
+            mode="json",
+            by_alias=True,
+            exclude_none=True,
+            exclude={"metadata": {"uid", "resource_version", "creation_timestamp"}},
+        )
+        body.setdefault("metadata", {})["namespace"] = namespace
+
+        await ctx.info(f"Validating PrometheusRule '{namespace}/{name}' (dry-run)")
+        try:
+            await k8s.dry_run_create_prometheus_rule(body, namespace=namespace)
+        except KubernetesClientError as exc:
+            await _raise_k8s_error("create_prometheus_alert_rule", exc, ctx)
+
+        await ctx.info(f"Applying PrometheusRule '{namespace}/{name}'")
+        try:
+            await k8s.apply_prometheus_rule(body, namespace=namespace)
+        except KubernetesFluxManagedError as exc:
+            logger.error("create_prometheus_alert_rule: flux_managed_conflict — %s", exc)
+            await ctx.error(str(exc))
+            raise ErrorResponse(error="flux_managed_conflict", detail=str(exc)) from exc
+        except KubernetesClientError as exc:
+            await _raise_k8s_error("create_prometheus_alert_rule", exc, ctx)
+
+        warnings: list[str] = []
+        matches = False
+        try:
+            prometheuses = await k8s.list_prometheuses(namespace=settings.k8s_namespace)
+        except KubernetesClientError as exc:
+            logger.warning(
+                "create_prometheus_alert_rule: could not check ruleSelector match: %s", exc
+            )
+            warnings.append(
+                f"Could not verify whether any Prometheus instance selects this rule: {exc}"
+            )
+        else:
+            matches = rule_matches_any_prometheus(labels, namespace, prometheuses)
+            if not matches:
+                warnings.append(
+                    f"The Prometheus in `{settings.k8s_namespace}` does not select this "
+                    "object's labels and namespace — the rule was created but will not "
+                    "be evaluated until labels or namespace are fixed."
+                )
+
+        return AlertRuleApplyResult(
+            name=name,
+            namespace=namespace,
+            labels=labels,
+            groups=[g.name for g in groups],
+            rules_applied=sum(len(g.rules) for g in groups),
+            matches_rule_selector=matches,
+            warnings=warnings,
+        )
+
     @mcp.tool()
     @mock_intercept(settings)
     async def bng_health_summary(ctx: Context) -> BngHealthSummary:
@@ -589,7 +767,7 @@ def register_bng_tools(mcp: FastMCP, settings: Settings) -> None:
         for q in [0.80, 0.95, 0.98]:
             promql_xxq = (
                 f"quantile_over_time({q}, state_system_cpu_summary_usage_cpu_usage"
-                f'{{cpu_sample_period=60,source="{device}"}}'
+                f'{{cpu_sample_period="60",source="{device}"}}'
                 f"[{window.prom_interval}:{window.prom_step}])"
             )
 

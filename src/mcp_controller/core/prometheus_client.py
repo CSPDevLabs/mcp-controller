@@ -14,6 +14,10 @@ from mcp_controller.core.types import (
 
 logger = logging.getLogger(__name__)
 
+# Cap for echoing a non-Prometheus error body (proxy/ingress HTML, etc.) into an
+# exception message, so a stray error page cannot flood logs or an MCP response.
+_ERROR_BODY_LIMIT = 500
+
 # Exceptions
 # -------------------------------------------------------------------------------------------------
 # PrometheusClientError          (base — also raised for body-level failures and catch-all)
@@ -35,11 +39,63 @@ class PrometheusTimeoutError(PrometheusClientError):
 
 
 class PrometheusHTTPError(PrometheusClientError):
-    """Raised when Prometheus returns a non-2xx HTTP status."""
+    """Raised when Prometheus returns a non-2xx HTTP status.
 
-    def __init__(self, message: str, status_code: int):
-        super().__init__(message, status_code)
+    Attributes:
+        status_code: The HTTP status returned by Prometheus.
+        error_type:  The `errorType` field from the Prometheus error body
+            (e.g. `"bad_data"`, `"timeout"`, `"execution"`), or `""` when
+            the response carried no parseable Prometheus error envelope.
+    """
+
+    def __init__(self, message: str, status_code: int, error_type: str = ""):
+        super().__init__(message)
         self.status_code = status_code
+        self.error_type = error_type
+
+
+def _http_error(exc: httpx.HTTPStatusError, operation: str) -> PrometheusHTTPError:
+    """Build a `PrometheusHTTPError` carrying Prometheus' own error message.
+
+    Prometheus answers a rejected request with a JSON envelope
+    (`{"status": "error", "errorType": ..., "error": ...}`) whose `error`
+    field names the actual problem, e.g. a PromQL parse error and its
+    character offset. `httpx` only reports the status line, so that
+    detail must be recovered from the body — without it a caller (or an
+    LLM driving a tool) has nothing actionable to correct.
+
+    Args:
+        exc:       The `httpx.HTTPStatusError` raised by `raise_for_status`.
+        operation: Human-readable name of the failed call, e.g.
+            `"range query"`, used to prefix the message.
+
+    Returns:
+        A `PrometheusHTTPError` with `status_code` and `error_type` set,
+        falling back to the raw response text when the body is not a
+        Prometheus error envelope.
+    """
+    response = exc.response
+    error_type = ""
+    detail = ""
+
+    try:
+        body = response.json()
+    except ValueError:
+        body = None
+
+    if isinstance(body, dict):
+        error_type = str(body.get("errorType") or "")
+        detail = str(body.get("error") or "")
+
+    if not detail:
+        detail = (response.text or "").strip()[:_ERROR_BODY_LIMIT] or response.reason_phrase
+
+    qualifier = f" ({error_type})" if error_type else ""
+    return PrometheusHTTPError(
+        f"Prometheus {operation} returned HTTP {response.status_code}{qualifier}: {detail}",
+        status_code=response.status_code,
+        error_type=error_type,
+    )
 
 
 class PrometheusClient:
@@ -144,10 +200,7 @@ class PrometheusClient:
                 f"Cannot reach Prometheus at {self.base_url}: {exc}"
             ) from exc
         except httpx.HTTPStatusError as exc:
-            raise PrometheusHTTPError(
-                f"Prometheus returned HTTP {exc.response.status_code}: {exc}",
-                status_code=exc.response.status_code,
-            ) from exc
+            raise _http_error(exc, "instant query") from exc
         except httpx.HTTPError as exc:
             raise PrometheusClientError(f"Prometheus request failed: {exc}") from exc
         except Exception as exc:
@@ -211,10 +264,7 @@ class PrometheusClient:
                 f"Cannot reach Prometheus at {self.base_url}: {exc}"
             ) from exc
         except httpx.HTTPStatusError as exc:
-            raise PrometheusHTTPError(
-                f"Prometheus returned HTTP {exc.response.status_code}: {exc}",
-                status_code=exc.response.status_code,
-            ) from exc
+            raise _http_error(exc, "range query") from exc
         except httpx.HTTPError as exc:
             raise PrometheusClientError(f"Prometheus range request failed: {exc}") from exc
         except Exception as exc:
@@ -227,6 +277,55 @@ class PrometheusClient:
             raise PrometheusClientError(f"Prometheus range query failed: {error}")
 
         return self._parse_result(promql, body["data"])
+
+    async def label_values(self, label_name: str = "__name__") -> list[str]:
+        """Return all values of a label currently known to Prometheus.
+
+        Called with the default `label_name="__name__"` this enumerates
+        every metric name Prometheus currently knows about — both scraped
+        device telemetry and rule-generated series (`ALERTS`, recording
+        rule outputs) — so callers never have to guess or invent a metric
+        name that does not exist.
+
+        Args:
+            label_name: The label to enumerate values for. Defaults to
+                `"__name__"`, i.e. metric names.
+
+        Returns:
+            Sorted list of distinct label values.
+
+        Raises:
+            PrometheusConnectionError: Cannot reach the Prometheus server.
+            PrometheusTimeoutError: Request exceeded the configured timeout.
+            PrometheusHTTPError: Server returned a non-2xx HTTP status.
+            PrometheusClientError: Response body indicates query failure.
+        """
+        logger.debug("[%s] LABEL: %s", self.label_values.__name__, label_name)
+
+        client = await self._get_client()
+
+        try:
+            response = await client.get(f"/api/v1/label/{label_name}/values")
+            response.raise_for_status()
+            body = response.json()
+        except httpx.TimeoutException as exc:
+            raise PrometheusTimeoutError(f"Prometheus label values query timed out: {exc}") from exc
+        except httpx.NetworkError as exc:
+            raise PrometheusConnectionError(
+                f"Cannot reach Prometheus at {self.base_url}: {exc}"
+            ) from exc
+        except httpx.HTTPStatusError as exc:
+            raise _http_error(exc, "label values query") from exc
+        except httpx.HTTPError as exc:
+            raise PrometheusClientError(f"Prometheus label values request failed: {exc}") from exc
+        except Exception as exc:
+            raise PrometheusClientError(f"Prometheus returned non-JSON response: {exc}") from exc
+
+        if body.get("status") != "success":
+            error = body.get("error", "unknown error")
+            raise PrometheusClientError(f"Prometheus label values query failed: {error}")
+
+        return sorted(body.get("data", []))
 
     @staticmethod
     def _format_time(t: str | datetime) -> str:

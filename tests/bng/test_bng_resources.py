@@ -10,7 +10,7 @@ from mcp_controller.bng.common import _raise_resource_error, _serialize_targets,
 from mcp_controller.bng.types import TargetSummary
 from mcp_controller.bng.resources import register_bng_resources
 from mcp_controller.config import Settings
-from mcp_controller.core.k8s_types import NetworkDeviceTarget, NetworkHostTarget
+from mcp_controller.core.k8s_types import NetworkDeviceTarget, NetworkHostTarget, PrometheusRule
 from mcp_controller.core.kubernetes_client import (
     KubernetesBadRequestError,
     KubernetesClientError,
@@ -19,6 +19,7 @@ from mcp_controller.core.kubernetes_client import (
     KubernetesPermissionError,
     KubernetesSchemaError,
 )
+from mcp_controller.core.prometheus_client import PrometheusClientError
 
 # Use a fixed namespace so tests don't depend on the default.
 TEST_NAMESPACE = "test-ns"
@@ -356,3 +357,163 @@ class TestResourceK8sErrorHandling:
         data = json.loads(str(exc_info.value))
         assert data["error"] == "namespace_not_found"
         assert "ghost" in data["detail"]
+
+
+# ---------------------------------------------------------------------------
+# bng://alerts/configured(+/{namespace}) resource tests
+# ---------------------------------------------------------------------------
+
+
+def _make_mock_k8s_rules(rules: list[PrometheusRule]) -> AsyncMock:
+    """Build a mock `KubernetesClient` returning `rules` from `list_prometheus_rules`."""
+    mock = AsyncMock()
+    mock.list_prometheus_rules = AsyncMock(return_value=rules)
+    return mock
+
+
+class TestBngAlertsConfiguredResource:
+    """Tests for the `bng://alerts/configured` static resource."""
+
+    async def test_returns_all_rules_across_namespaces(
+        self, prometheus_rules: list[PrometheusRule]
+    ) -> None:
+        mock_k8s = _make_mock_k8s_rules(prometheus_rules)
+        settings = Settings(k8s_namespace=TEST_NAMESPACE)
+
+        with patch("mcp_controller.bng.resources.KubernetesClient", return_value=mock_k8s):
+            from mcp.server.fastmcp import FastMCP
+
+            mcp = FastMCP(name="test")
+            register_bng_resources(mcp, settings)
+
+            resource = mcp._resource_manager._resources["bng://alerts/configured"]
+            result = await resource.fn()
+
+        mock_k8s.list_prometheus_rules.assert_awaited_once_with()
+        data = json.loads(result)
+        assert len(data) == 2
+        names = {r["metadata"]["name"] for r in data}
+        assert names == {"system-resource-alerts", "network-baseline-alerts"}
+        # Aliases must be used in JSON output (e.g. `for`, not `for_`).
+        assert data[0]["spec"]["groups"][0]["rules"][0]["for"] == "1m"
+
+    async def test_raises_resource_error_on_k8s_failure(self) -> None:
+        mock_k8s = AsyncMock()
+        mock_k8s.list_prometheus_rules = AsyncMock(
+            side_effect=KubernetesPermissionError("RBAC denied for PrometheusRule")
+        )
+        settings = Settings(k8s_namespace=TEST_NAMESPACE)
+
+        with patch("mcp_controller.bng.resources.KubernetesClient", return_value=mock_k8s):
+            from mcp.server.fastmcp import FastMCP
+
+            mcp = FastMCP(name="test")
+            register_bng_resources(mcp, settings)
+
+            resource = mcp._resource_manager._resources["bng://alerts/configured"]
+            with pytest.raises(ResourceError) as exc_info:
+                await resource.fn()
+
+        data = json.loads(str(exc_info.value))
+        assert data["error"] == "permission_denied"
+
+
+class TestBngAlertsConfiguredByNamespaceTemplate:
+    """Tests for the `bng://alerts/configured/{namespace}` template."""
+
+    async def test_passes_namespace_to_client(
+        self,
+        mock_ctx: AsyncMock,
+        prometheus_rules: list[PrometheusRule],
+    ) -> None:
+        mock_k8s = _make_mock_k8s_rules(prometheus_rules)
+        settings = Settings(k8s_namespace=TEST_NAMESPACE)
+
+        with patch("mcp_controller.bng.resources.KubernetesClient", return_value=mock_k8s):
+            from mcp.server.fastmcp import FastMCP
+
+            mcp = FastMCP(name="test")
+            register_bng_resources(mcp, settings)
+
+            tpl = mcp._resource_manager._templates["bng://alerts/configured/{namespace}"]
+            result = await tpl.fn("nok-bng", mock_ctx)
+
+        mock_k8s.list_prometheus_rules.assert_awaited_once_with(namespace="nok-bng")
+        data = json.loads(result)
+        assert len(data) == 2
+
+    async def test_raises_resource_error_on_namespace_not_found(
+        self, mock_ctx: AsyncMock
+    ) -> None:
+        mock_k8s = AsyncMock()
+        mock_k8s.list_prometheus_rules = AsyncMock(
+            side_effect=KubernetesNamespaceNotFoundError("Namespace 'ghost' does not exist")
+        )
+        settings = Settings(k8s_namespace=TEST_NAMESPACE)
+
+        with patch("mcp_controller.bng.resources.KubernetesClient", return_value=mock_k8s):
+            from mcp.server.fastmcp import FastMCP
+
+            mcp = FastMCP(name="test")
+            register_bng_resources(mcp, settings)
+
+            tpl = mcp._resource_manager._templates["bng://alerts/configured/{namespace}"]
+            with pytest.raises(ResourceError) as exc_info:
+                await tpl.fn("ghost", mock_ctx)
+
+        data = json.loads(str(exc_info.value))
+        assert data["error"] == "namespace_not_found"
+
+
+# ---------------------------------------------------------------------------
+# bng://metrics/available resource tests
+# ---------------------------------------------------------------------------
+
+
+class TestBngMetricsAvailableResource:
+    """Tests for the `bng://metrics/available` static resource."""
+
+    async def test_classifies_metric_names(
+        self, raw_metric_names_response: dict
+    ) -> None:
+        mock_prom = AsyncMock()
+        mock_prom.label_values = AsyncMock(
+            return_value=sorted(raw_metric_names_response["data"])
+        )
+        settings = Settings(k8s_namespace=TEST_NAMESPACE)
+
+        with patch("mcp_controller.bng.resources.PrometheusClient", return_value=mock_prom):
+            from mcp.server.fastmcp import FastMCP
+
+            mcp = FastMCP(name="test")
+            register_bng_resources(mcp, settings)
+
+            resource = mcp._resource_manager._resources["bng://metrics/available"]
+            result = await resource.fn()
+
+        mock_prom.label_values.assert_awaited_once_with("__name__")
+        data = json.loads(result)
+        assert "state_system_cpu_summary_usage_cpu_usage" in data["device_metrics"]
+        assert "ALERTS" in data["rule_generated_metrics"]
+        assert "up" in data["scrape_meta_metrics"]
+        assert data["total_count"] == len(raw_metric_names_response["data"])
+
+    async def test_raises_resource_error_on_prometheus_failure(self) -> None:
+        mock_prom = AsyncMock()
+        mock_prom.label_values = AsyncMock(
+            side_effect=PrometheusClientError("connection refused")
+        )
+        settings = Settings(k8s_namespace=TEST_NAMESPACE)
+
+        with patch("mcp_controller.bng.resources.PrometheusClient", return_value=mock_prom):
+            from mcp.server.fastmcp import FastMCP
+
+            mcp = FastMCP(name="test")
+            register_bng_resources(mcp, settings)
+
+            resource = mcp._resource_manager._resources["bng://metrics/available"]
+            with pytest.raises(ResourceError) as exc_info:
+                await resource.fn()
+
+        data = json.loads(str(exc_info.value))
+        assert data["error"] == "prometheus_error"

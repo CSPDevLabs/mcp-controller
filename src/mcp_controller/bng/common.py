@@ -10,8 +10,13 @@ from mcp.server.fastmcp import FastMCP
 from mcp.server.fastmcp.exceptions import ResourceError
 from mcp.server.fastmcp.server import Context
 
-from mcp_controller.bng.types import QueryWindow, TargetSummary
-from mcp_controller.core.k8s_types import NetworkDeviceTarget, NetworkHostTarget
+from mcp_controller.bng.types import MetricsAvailable, QueryWindow, TargetSummary
+from mcp_controller.core.k8s_types import (
+    NetworkDeviceTarget,
+    NetworkHostTarget,
+    Prometheus,
+    PrometheusRule,
+)
 from mcp_controller.core.types import ErrorResponse, MetricResult
 from mcp_controller.core.kubernetes_client import (
     KubernetesBadRequestError,
@@ -24,6 +29,7 @@ from mcp_controller.core.kubernetes_client import (
 from mcp_controller.core.prometheus_client import (
     PrometheusClient,
     PrometheusClientError,
+    PrometheusHTTPError,
 )
 
 logger = logging.getLogger(__name__)
@@ -31,10 +37,10 @@ logger = logging.getLogger(__name__)
 
 async def _raise_resource_error(
     uri: str,
-    exc: KubernetesClientError | NotImplementedError,
+    exc: KubernetesClientError | PrometheusClientError | NotImplementedError,
     ctx: Context | None = None,
 ) -> NoReturn:
-    """Classify a K8s error and raise a `ResourceError`.
+    """Classify a K8s or Prometheus error and raise a `ResourceError`.
 
     Resource-facing counterpart of `_raise_k8s_error`: logs the error,
     optionally notifies the MCP client, and raises `ResourceError` so
@@ -43,8 +49,9 @@ async def _raise_resource_error(
 
     Args:
         uri: The resource URI that failed (for context in the message).
-        exc: The caught `KubernetesClientError` (or subclass), or a
-            `NotImplementedError` for capabilities not yet available.
+        exc: The caught `KubernetesClientError` (or subclass), a
+            `PrometheusClientError` (or subclass), or a `NotImplementedError`
+            for capabilities not yet available.
         ctx: Optional MCP request context for client-visible error messages.
 
     Raises:
@@ -62,6 +69,10 @@ async def _raise_resource_error(
         category = "permission_denied"
     elif isinstance(exc, KubernetesSchemaError):
         category = "schema_validation"
+    elif isinstance(exc, PrometheusHTTPError) and exc.status_code == 400:
+        category = "invalid_query"
+    elif isinstance(exc, PrometheusClientError):
+        category = "prometheus_error"
     else:
         category = "api_error"
 
@@ -476,6 +487,122 @@ def _serialize_targets(targets: list[NetworkDeviceTarget] | list[NetworkHostTarg
     )
 
 
+def _serialize_prometheus_rules(rules: list[PrometheusRule]) -> str:
+    """Serialize a list of `PrometheusRule` CRs to JSON using Pydantic's `model_dump`.
+
+    Args:
+        rules: List of validated `PrometheusRule` models.
+
+    Returns:
+        Pretty-printed JSON string.
+    """
+    return json.dumps(
+        [r.model_dump(mode="json", by_alias=True, exclude_none=True) for r in rules],
+        indent=2,
+    )
+
+
+# Metric-name classification for the `bng://metrics/available` resource.
+# -------------------------------------------------------------------------------------------------
+
+_SCRAPE_META_EXACT = frozenset({"up"})
+_SCRAPE_META_PREFIX = "scrape_"
+_RULE_GENERATED_PREFIX = "ALERTS"
+
+
+def classify_metric_names(names: list[str]) -> MetricsAvailable:
+    """Split Prometheus `__name__` label values into device/rule/scrape-meta buckets.
+
+    Args:
+        names: All metric names returned by `PrometheusClient.label_values()`.
+
+    Returns:
+        `MetricsAvailable` with device telemetry separated from rule-generated
+        series (`ALERTS`, `ALERTS_FOR_STATE`) and scrape housekeeping metrics
+        (`up`, `scrape_*`), so the LLM does not mistake either for a signal.
+    """
+    device: list[str] = []
+    rule_generated: list[str] = []
+    scrape_meta: list[str] = []
+    for name in names:
+        if name in _SCRAPE_META_EXACT or name.startswith(_SCRAPE_META_PREFIX):
+            scrape_meta.append(name)
+        elif name.startswith(_RULE_GENERATED_PREFIX):
+            rule_generated.append(name)
+        else:
+            device.append(name)
+    return MetricsAvailable(
+        device_metrics=device,
+        rule_generated_metrics=rule_generated,
+        scrape_meta_metrics=scrape_meta,
+        total_count=len(names),
+    )
+
+
+# PrometheusRule selection matching for the create-alert-rule tool.
+# -------------------------------------------------------------------------------------------------
+
+
+def rule_matches_any_prometheus(
+    rule_labels: dict[str, str],
+    rule_namespace: str,
+    prometheuses: list[Prometheus],
+) -> bool:
+    """Return whether any `Prometheus` instance would select and evaluate this rule.
+
+    Mirrors prometheus-operator's `ruleSelector` semantics: an instance with
+    no `ruleSelector` (or an empty `matchLabels`) selects no `PrometheusRule`
+    objects at all. When `ruleNamespaceSelector` is unset, the operator
+    restricts selection to the `Prometheus` object's own namespace; when it
+    is set, this check cannot evaluate arbitrary namespace label selectors
+    without extra API calls, so it conservatively treats the namespace as
+    unconstrained (a possible match) rather than reporting a false negative.
+
+    Args:
+        rule_labels:    `metadata.labels` of the `PrometheusRule` being applied.
+        rule_namespace: `metadata.namespace` of the `PrometheusRule` being applied.
+        prometheuses:   All `Prometheus` CRs in the cluster.
+
+    Returns:
+        `True` if at least one instance would select this rule.
+    """
+    for prom in prometheuses:
+        spec = prom.spec
+        if spec is None or spec.rule_selector is None or not spec.rule_selector.match_labels:
+            continue
+        required = spec.rule_selector.match_labels
+        if not all(rule_labels.get(k) == v for k, v in required.items()):
+            continue
+        if spec.rule_namespace_selector is None:
+            prom_namespace = prom.metadata.namespace if prom.metadata else None
+            if prom_namespace and prom_namespace != rule_namespace:
+                continue
+        return True
+    return False
+
+
+def _promql_error_detail(exc: PrometheusClientError, promql: str) -> tuple[str, str]:
+    """Classify a Prometheus failure and build a self-correctable detail string.
+
+    A `400` from Prometheus means the request itself was malformed —
+    almost always the PromQL expression — and is fixable by the caller,
+    unlike a connection or timeout failure. It is therefore reported under
+    a distinct `invalid_query` category with the offending expression
+    echoed back, so an LLM driving the tool can see what it actually sent
+    and correct it rather than retrying the same broken query.
+
+    Args:
+        exc:    The caught Prometheus client exception.
+        promql: The PromQL expression that was sent.
+
+    Returns:
+        Tuple of `(error_category, detail)`.
+    """
+    if isinstance(exc, PrometheusHTTPError) and exc.status_code == 400:
+        return "invalid_query", f"{exc}; query={promql}"
+    return "prometheus_error", str(exc)
+
+
 async def execute_instant_query(
     prom: PrometheusClient,
     promql: str,
@@ -494,15 +621,19 @@ async def execute_instant_query(
         A `MetricResult` with `result_type="vector"`.
 
     Raises:
-        ErrorResponse: on Prometheus client failure or unexpected result type.
+        ErrorResponse: with `error="invalid_query"` when Prometheus rejects
+            the expression (HTTP 400), `error="prometheus_error"` on any
+            other client failure, or `error="unexpected_result_type"` when
+            the response is not a vector.
     """
     try:
         result = await prom.query(promql)
     except PrometheusClientError as exc:
-        logger.error("%s failed: %s", tool_name, exc)
+        category, detail = _promql_error_detail(exc, promql)
+        logger.error("%s failed (%s): %s", tool_name, category, detail)
         raise ErrorResponse(
-            error="prometheus_error",
-            detail=str(exc),
+            error=category,
+            detail=detail,
             device=device,
         ) from exc
 
@@ -547,7 +678,10 @@ async def execute_range_query(
         A `MetricResult` on success.
 
     Raises:
-        ErrorResponse: on Prometheus client failure or unexpected result type.
+        ErrorResponse: with `error="invalid_query"` when Prometheus rejects
+            the expression (HTTP 400), `error="prometheus_error"` on any
+            other client failure, or `error="unexpected_result_type"` when
+            the response is not a matrix.
     """
     try:
         result = await prom.query_range(
@@ -557,10 +691,11 @@ async def execute_range_query(
             step=step,
         )
     except PrometheusClientError as exc:
-        logger.error("%s failed: %s", tool_name, exc)
+        category, detail = _promql_error_detail(exc, promql)
+        logger.error("%s failed (%s): %s", tool_name, category, detail)
         raise ErrorResponse(
-            error="prometheus_error",
-            detail=str(exc),
+            error=category,
+            detail=detail,
             device=device,
             interval=interval,
         ) from exc

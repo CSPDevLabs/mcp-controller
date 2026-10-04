@@ -1,0 +1,7 @@
+[
+  {
+    "args": {},
+    "response_type": "str",
+    "mock_data": "{\n  \"device_metrics\": [\n    \"state_card_fp_resource_usage_egress_policers_allocated\",\n    \"state_card_fp_resource_usage_egress_policers_total\",\n    \"state_card_fp_resource_usage_egress_queues_allocated\",\n    \"state_card_fp_resource_usage_egress_queues_total\",\n    \"state_card_fp_resource_usage_ingress_policers_allocated\",\n    \"state_card_fp_resource_usage_ingress_policers_total\",\n    \"state_card_fp_resource_usage_ingress_queues_allocated\",\n    \"state_card_fp_resource_usage_ingress_queues_total\",\n    \"state_card_mda_resource_usage_sap_instances_allocated\",\n    \"state_subscriber_mgmt_statistics_sessions_current_value\",\n    \"state_subscriber_mgmt_statistics_total_hosts_current_value\",\n    \"state_subscriber_mgmt_statistics_total_hosts_peak_value\",\n    \"state_system_cpu_summary_usage_cpu_usage\",\n    \"state_system_memory_pools_summary_available_memory\",\n    \"state_system_memory_pools_summary_total_in_use\",\n    \"state_system_resource_usage_subscriber_next_hop_entries_allocated\",\n    \"state_system_resource_usage_subscriber_next_hop_entries_total\"\n  ],\n  \"rule_generated_metrics\": [\n    \"ALERTS\",\n    \"ALERTS_FOR_STATE\"\n  ],\n  \"scrape_meta_metrics\": [\n    \"scrape_duration_seconds\",\n    \"scrape_samples_post_metric_relabeling\",\n    \"scrape_samples_scraped\",\n    \"up\"\n  ],\n  \"total_count\": 23\n}"
+  }
+]

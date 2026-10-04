@@ -1,0 +1,90 @@
+{
+  "description": "PrometheusRuleSpec contains the specification of desired alerting/recording rule groups. See https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api-reference/api.md#monitoring.coreos.com/v1.PrometheusRuleSpec",
+  "properties": {
+    "groups": {
+      "description": "Content of Prometheus rule file. See https://prometheus.io/docs/prometheus/latest/configuration/alerting_rules/",
+      "items": {
+        "description": "RuleGroup is a list of sequentially evaluated recording and alerting rules.",
+        "properties": {
+          "interval": {
+            "description": "Interval determines how often rules in this group are evaluated. Defaults to global.evaluation_interval.",
+            "type": "string"
+          },
+          "limit": {
+            "description": "Limit the number of alerts an alerting rule and series a recording rule can produce.",
+            "type": "integer"
+          },
+          "name": {
+            "description": "Name of the rule group.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "partial_response_strategy": {
+            "description": "PartialResponseStrategy is only used by ThanosRuler. See https://github.com/thanos-io/thanos/blob/main/docs/components/rule.md#partial-response",
+            "pattern": "^(?i)(abort|warn)?$",
+            "type": "string"
+          },
+          "query_offset": {
+            "description": "Defines the offset the rule evaluation timestamp of this particular group by the specified duration into the past.",
+            "type": "string"
+          },
+          "rules": {
+            "description": "List of alerting and recording rules.",
+            "items": {
+              "description": "Rule describes an alerting or recording rule. See https://prometheus.io/docs/prometheus/latest/configuration/alerting_rules/ or https://prometheus.io/docs/prometheus/latest/configuration/recording_rules/#recording-rules for documentation.",
+              "properties": {
+                "alert": {
+                  "description": "Name of the alert. Must be a valid label value.",
+                  "type": "string"
+                },
+                "annotations": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "description": "Annotations to add to each alert. Only valid for alerting rules.",
+                  "type": "object"
+                },
+                "expr": {
+                  "anyOf": [
+                    {"type": "integer"},
+                    {"type": "string"}
+                  ],
+                  "description": "PromQL expression to evaluate.",
+                  "x-kubernetes-int-or-string": true
+                },
+                "for": {
+                  "description": "Alerts are considered firing once they have been returned for this long. Only valid for alerting rules.",
+                  "pattern": "^(0|(([0-9]+)y)?(([0-9]+)w)?(([0-9]+)d)?(([0-9]+)h)?(([0-9]+)m)?(([0-9]+)s)?(([0-9]+)ms)?)$",
+                  "type": "string"
+                },
+                "keep_firing_for": {
+                  "description": "KeepFiringFor defines how long an alert will continue firing after the condition that triggered it has cleared.",
+                  "pattern": "^(0|(([0-9]+)y)?(([0-9]+)w)?(([0-9]+)d)?(([0-9]+)h)?(([0-9]+)m)?(([0-9]+)s)?(([0-9]+)ms)?)$",
+                  "type": "string"
+                },
+                "labels": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "description": "Labels to add or overwrite.",
+                  "type": "object"
+                },
+                "record": {
+                  "description": "Name of the time series to output to. Must be a valid metric name. Only valid for recording rules.",
+                  "type": "string"
+                }
+              },
+              "required": ["expr"],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": ["name", "rules"],
+        "type": "object"
+      },
+      "type": "array"
+    }
+  },
+  "type": "object"
+}

@@ -1,6 +1,7 @@
 """Tests for BNG metric tools (CPU usage, memory usage)."""
 
 import json
+import re
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
@@ -8,11 +9,19 @@ import pytest
 
 from mcp_controller.bng.tools import register_bng_tools
 from mcp_controller.config import Settings
-from mcp_controller.core.prometheus_client import PrometheusClient, PrometheusClientError
+from mcp_controller.core.prometheus_client import (
+    PrometheusClient,
+    PrometheusClientError,
+    PrometheusHTTPError,
+)
 from mcp_controller.core.types import ErrorResponse, MetricResult, MetricSample, MetricSeries
 
 FIXTURES_DIR = Path(__file__).resolve().parent.parent / "fixtures"
 PROM_FIXTURES = FIXTURES_DIR / "prometheus"
+
+# A label matcher whose value is a bare number instead of a quoted string —
+# PromQL requires a string literal, so this is always a parse error.
+UNQUOTED_MATCHER = re.compile(r"[{,]\s*\w+\s*=~?\s*[^\"'\s]")
 
 TEST_NAMESPACE = "test-ns"
 
@@ -162,6 +171,49 @@ class TestBngDeviceCpuUsage:
 
         assert exc_info.value.error == "prometheus_error"
         assert "connection refused" in exc_info.value.detail
+
+    async def test_rejected_promql_is_reported_as_invalid_query(
+        self, mock_ctx: AsyncMock
+    ) -> None:
+        """A 400 is caller-fixable, so it must not hide behind `prometheus_error`."""
+        mock_prom = _make_mock_prom(None)
+        mock_prom.query_range = AsyncMock(
+            side_effect=PrometheusHTTPError(
+                "Prometheus range query returned HTTP 400 (bad_data): "
+                'invalid parameter "query": 1:73: parse error',
+                status_code=400,
+                error_type="bad_data",
+            )
+        )
+        tool = _register_and_get_tool("bng_device_cpu_usage", mock_prom)
+
+        with pytest.raises(ErrorResponse) as exc_info:
+            await tool.fn(device="bng-01", interval="5m", step="1m", ctx=mock_ctx)
+
+        assert exc_info.value.error == "invalid_query"
+        assert "parse error" in exc_info.value.detail
+        # The offending expression is echoed back so the caller can correct it.
+        assert "state_system_cpu_summary_usage_cpu_usage" in exc_info.value.detail
+
+    async def test_all_emitted_promql_quotes_label_matcher_values(
+        self, mock_ctx: AsyncMock
+    ) -> None:
+        """Every query the tool builds — including the quantile ones — must parse.
+
+        An unquoted matcher value such as `cpu_sample_period=60` is a PromQL
+        parse error and made Prometheus reject the quantile queries with 400.
+        """
+        fixture = _parse_prom_fixture(PROM_FIXTURES / "cpu_usage_range.json")
+        mock_prom = _make_mock_prom(fixture)
+        tool = _register_and_get_tool("bng_device_cpu_usage", mock_prom)
+
+        await tool.fn(device="bng-01", interval="5m", step="1m", ctx=mock_ctx)
+
+        queries = [call.args[0] for call in mock_prom.query_range.call_args_list]
+        assert len(queries) == 4  # one range query + three quantiles
+        for promql in queries:
+            assert 'cpu_sample_period="60"' in promql
+            assert not UNQUOTED_MATCHER.search(promql), promql
 
     async def test_normalizes_human_friendly_step(
         self, mock_ctx: AsyncMock

@@ -6,13 +6,23 @@ import logging
 from mcp.server.fastmcp import FastMCP
 from mcp.server.fastmcp.server import Context
 
-from mcp_controller.bng.common import _raise_resource_error, _serialize_targets, _target_summary
+from mcp_controller.bng.common import (
+    _raise_resource_error,
+    _serialize_prometheus_rules,
+    _serialize_targets,
+    _target_summary,
+    classify_metric_names,
+)
 from mcp_controller.config import Settings
 from mcp_controller.core.controllers import ControllerId
 from mcp_controller.core.mock import mock_intercept
 from mcp_controller.core.kubernetes_client import (
     KubernetesClient,
     KubernetesClientError,
+)
+from mcp_controller.core.prometheus_client import (
+    PrometheusClient,
+    PrometheusClientError,
 )
 from mcp_controller.core.registry import (
     ControllerCapability,
@@ -25,7 +35,7 @@ logger = logging.getLogger(__name__)
 
 BNG_MANIFEST = ControllerManifest(
     controller_id=ControllerId.BNG,
-    version="1.0.2",
+    version="1.1.0",
     display_name="Nokia BNG Observability MCP Controller",
     network_function="bng",
     description=(
@@ -90,6 +100,42 @@ BNG_MANIFEST = ControllerManifest(
             kind="resource_template",
             description="NetworkHostTarget CRs filtered by Kubernetes namespace",
             tags=[CapabilityTag.TARGETS, CapabilityTag.DISCOVERY],
+        ),
+        ControllerCapability(
+            name="bng://alerts/configured",
+            kind="resource",
+            description=(
+                "All PrometheusRule objects (alerting and recording) deployed "
+                "across every namespace — name, namespace, labels, and their "
+                "groups/rules"
+            ),
+            tags=[CapabilityTag.ALERTS, CapabilityTag.DISCOVERY],
+        ),
+        ControllerCapability(
+            name="bng://alerts/configured/{namespace}",
+            kind="resource_template",
+            description="PrometheusRule objects filtered by Kubernetes namespace",
+            tags=[CapabilityTag.ALERTS, CapabilityTag.DISCOVERY],
+        ),
+        ControllerCapability(
+            name="bng://metrics/available",
+            kind="resource",
+            description=(
+                "Metric names known to Prometheus, split into device telemetry, "
+                "rule-generated series (e.g. ALERTS), and scrape housekeeping "
+                "metrics — the allow-list for writing new PromQL expressions"
+            ),
+            tags=[CapabilityTag.ALERTS, CapabilityTag.METRICS, CapabilityTag.DISCOVERY],
+        ),
+        ControllerCapability(
+            name="create_prometheus_alert_rule",
+            kind="tool",
+            description=(
+                "Create or replace an alerting PrometheusRule object in Kubernetes "
+                "from a YAML/JSON manifest. Gated by the `alerts_write_enabled` "
+                "setting; refuses recording rules and Flux-managed objects."
+            ),
+            tags=[CapabilityTag.ALERTS],
         ),
         ControllerCapability(
             name="bng_health_summary",
@@ -261,6 +307,27 @@ BNG_MANIFEST = ControllerManifest(
             ),
             tags=[CapabilityTag.MANIFEST, CapabilityTag.DISCOVERY],
         ),
+        ControllerCapability(
+            name="bng-add-alert-rule",
+            kind="prompt",
+            description=(
+                "Guided prompt for authoring a new alerting PrometheusRule — "
+                "assembles the live CRD schema, Prometheus ruleSelector/namespace "
+                "facts, a PromQL cheat sheet, and a worked example, then tells the "
+                "LLM to call `create_prometheus_alert_rule`"
+            ),
+            tags=[CapabilityTag.ALERTS, CapabilityTag.DISCOVERY],
+        ),
+        ControllerCapability(
+            name="bng-get-alert-rules",
+            kind="prompt",
+            description=(
+                "Short prompt pointing the LLM at `bng://alerts/configured` and "
+                "explaining how to tell active rules from ones whose labels don't "
+                "match any Prometheus ruleSelector"
+            ),
+            tags=[CapabilityTag.ALERTS, CapabilityTag.DISCOVERY],
+        ),
     ],
     # Other MCP Controllers of EAC ecosystem
     dependencies=[],
@@ -290,6 +357,10 @@ def register_bng_resources(mcp: FastMCP, settings: Settings) -> None:
         None
     """
     k8s = KubernetesClient(namespace=settings.k8s_namespace)
+    prom = PrometheusClient(
+        base_url=settings.prometheus_url,
+        verify=not settings.tls_skip_verify,
+    )
 
     # Static resources
     # -------------------------------------------------------------------------------------------------
@@ -359,6 +430,29 @@ def register_bng_resources(mcp: FastMCP, settings: Settings) -> None:
             await _raise_resource_error("bng://targets/hosts", exc)
         return _serialize_targets(hosts)
 
+    @mcp.resource("bng://alerts/configured")
+    @mock_intercept(settings)
+    async def bng_alerts_configured() -> str:
+        """All `PrometheusRule` objects (alerting and recording) across every namespace."""
+        logger.info("Listing all PrometheusRule CRs (all namespaces)")
+        try:
+            rules = await k8s.list_prometheus_rules()
+        except KubernetesClientError as exc:
+            await _raise_resource_error("bng://alerts/configured", exc)
+        return _serialize_prometheus_rules(rules)
+
+    @mcp.resource("bng://metrics/available")
+    @mock_intercept(settings)
+    async def bng_metrics_available() -> str:
+        """Metric names known to Prometheus, split into device/rule/scrape-meta buckets."""
+        logger.info("Listing available Prometheus metric names")
+        try:
+            names = await prom.label_values("__name__")
+        except PrometheusClientError as exc:
+            await _raise_resource_error("bng://metrics/available", exc)
+        summary = classify_metric_names(names)
+        return summary.model_dump_json(indent=2)
+
     # Resource templates
     # -------------------------------------------------------------------------------------------------
 
@@ -385,3 +479,15 @@ def register_bng_resources(mcp: FastMCP, settings: Settings) -> None:
         except KubernetesClientError as exc:
             await _raise_resource_error(f"bng://targets/hosts/{namespace}", exc, ctx)
         return _serialize_targets(hosts)
+
+    @mcp.resource("bng://alerts/configured/{namespace}")
+    @mock_intercept(settings)
+    async def bng_alerts_configured_by_ns(namespace: str, ctx: Context) -> str:
+        """`PrometheusRule` objects in a specific namespace."""
+        logger.info("Listing PrometheusRule CRs in namespace: %s", namespace)
+        await ctx.info(f"Listing PrometheusRule CRs in namespace: {namespace}")
+        try:
+            rules = await k8s.list_prometheus_rules(namespace=namespace)
+        except KubernetesClientError as exc:
+            await _raise_resource_error(f"bng://alerts/configured/{namespace}", exc, ctx)
+        return _serialize_prometheus_rules(rules)

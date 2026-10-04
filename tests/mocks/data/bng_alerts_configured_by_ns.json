@@ -1,0 +1,16 @@
+[
+  {
+    "args": {
+      "namespace": "nok-bng"
+    },
+    "response_type": "str",
+    "mock_data": "[\n  {\n    \"apiVersion\": \"monitoring.coreos.com/v1\",\n    \"kind\": \"PrometheusRule\",\n    \"metadata\": {\n      \"name\": \"system-resource-alerts\",\n      \"namespace\": \"nok-bng\",\n      \"labels\": {\n        \"role\": \"alert-rules\"\n      },\n      \"annotations\": {},\n      \"uid\": \"cccc-dddd-eeee-0001\",\n      \"resourceVersion\": \"610000\",\n      \"creationTimestamp\": \"2026-04-20T09:00:00Z\"\n    },\n    \"spec\": {\n      \"groups\": [\n        {\n          \"name\": \"system-usage\",\n          \"rules\": [\n            {\n              \"alert\": \"HighCpuUsage\",\n              \"expr\": \"state_system_cpu_summary_usage_cpu_usage > 12\",\n              \"for\": \"1m\",\n              \"labels\": {\n                \"severity\": \"warning\"\n              },\n              \"annotations\": {\n                \"summary\": \"High CPU usage on {{ $labels.source }}\",\n                \"description\": \"CPU usage is at {{ $value }}% (threshold 12%)\"\n              }\n            },\n            {\n              \"alert\": \"HighMemoryUsage\",\n              \"expr\": \"(state_system_memory_pools_summary_total_in_use / state_system_memory_pools_summary_available_memory) * 100 > 2\",\n              \"for\": \"1m\",\n              \"labels\": {\n                \"severity\": \"warning\"\n              },\n              \"annotations\": {\n                \"summary\": \"High Memory usage on {{ $labels.source }}\",\n                \"description\": \"Memory utilization is at {{ $value }}% (threshold 2%)\"\n              }\n            }\n          ]\n        }\n      ]\n    }\n  },\n  {\n    \"apiVersion\": \"monitoring.coreos.com/v1\",\n    \"kind\": \"PrometheusRule\",\n    \"metadata\": {\n      \"name\": \"network-baseline-alerts\",\n      \"namespace\": \"nok-bng\",\n      \"labels\": {\n        \"role\": \"alert-rules\",\n        \"kustomize.toolkit.fluxcd.io/name\": \"prometheus-rules\",\n        \"kustomize.toolkit.fluxcd.io/namespace\": \"flux-system\"\n      },\n      \"annotations\": {},\n      \"uid\": \"cccc-dddd-eeee-0002\",\n      \"resourceVersion\": \"610001\",\n      \"creationTimestamp\": \"2026-04-15T16:55:34Z\"\n    },\n    \"spec\": {\n      \"groups\": [\n        {\n          \"name\": \"device-availability\",\n          \"rules\": [\n            {\n              \"alert\": \"BngDeviceUnreachable\",\n              \"expr\": \"absent_over_time(state_system_cpu_summary_usage_cpu_usage{source=\\\"nok-bng/clab-sros-bngt-bng1\\\"}[10m])\",\n              \"for\": \"2m\",\n              \"labels\": {\n                \"severity\": \"critical\"\n              },\n              \"annotations\": {\n                \"summary\": \"BNG device {{ $labels.source }} is unreachable\",\n                \"description\": \"No CPU telemetry received for 10 minutes.\"\n              }\n            }\n          ]\n        }\n      ]\n    }\n  }\n]"
+  },
+  {
+    "args": {
+      "namespace": "other-ns"
+    },
+    "response_type": "str",
+    "mock_data": "[]"
+  }
+]

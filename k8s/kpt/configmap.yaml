@@ -18,3 +18,4 @@ data:
   MCP_K8S_NAMESPACE: nok-bng # kpt-set: ${k8s-namespace}
   MCP_TLS_SKIP_VERIFY: "false"
   MCP_ENVIRONMENT: production # kpt-set: ${mcp-environment}
+  MCP_ALERTS_WRITE_ENABLED: "true"

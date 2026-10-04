@@ -34,6 +34,7 @@ from pydantic import ValidationError
 
 from kubernetes_asyncio import config
 from kubernetes_asyncio.client import ApiClient
+from kubernetes_asyncio.client.api.apiextensions_v1_api import ApiextensionsV1Api
 from kubernetes_asyncio.client.api.core_v1_api import CoreV1Api
 from kubernetes_asyncio.client.api.custom_objects_api import CustomObjectsApi
 from kubernetes_asyncio.client.rest import ApiException
@@ -43,6 +44,8 @@ from mcp_controller.core.k8s_types import (
     Namespace,
     NetworkDeviceTarget,
     NetworkHostTarget,
+    Prometheus,
+    PrometheusRule,
 )
 
 
@@ -81,6 +84,43 @@ NETWORK_HOST_TARGET = CRDDescriptor(
     kind="NetworkHostTarget",
 )
 
+PROMETHEUS_RULE = CRDDescriptor(
+    group="monitoring.coreos.com",
+    version="v1",
+    plural="prometheusrules",
+    kind="PrometheusRule",
+)
+
+PROMETHEUS = CRDDescriptor(
+    group="monitoring.coreos.com",
+    version="v1",
+    plural="prometheuses",
+    kind="Prometheus",
+)
+
+# Fully-qualified name of the PrometheusRule CustomResourceDefinition, used to
+# fetch its live OpenAPI schema (for the `bng-add-alert-rule` prompt).
+PROMETHEUS_RULE_CRD_NAME = "prometheusrules.monitoring.coreos.com"
+
+# Label key prefix identifying objects managed by Flux (kustomize-controller).
+# Rules carrying any label with this prefix are GitOps-owned and must not be
+# deleted/replaced by the `create_prometheus_alert_rule` tool.
+FLUX_LABEL_PREFIX = "kustomize.toolkit.fluxcd.io/"
+
+
+def is_flux_managed(labels: dict[str, str] | None) -> bool:
+    """Return whether an object's labels mark it as Flux-managed.
+
+    Args:
+        labels: The object's `metadata.labels`, or `None`.
+
+    Returns:
+        `True` if any label key starts with `kustomize.toolkit.fluxcd.io/`.
+    """
+    if not labels:
+        return False
+    return any(key.startswith(FLUX_LABEL_PREFIX) for key in labels)
+
 
 # Exceptions TODO: to review
 # -------------------------------------------------------------------------------------------------
@@ -108,6 +148,16 @@ class KubernetesBadRequestError(KubernetesClientError):
 
 class KubernetesNamespaceNotFoundError(KubernetesClientError):
     """Raised when the requested namespace does not exist in the cluster."""
+
+
+class KubernetesFluxManagedError(KubernetesClientError):
+    """Raised when a write would delete/replace a Flux-managed object.
+
+    Flux (kustomize-controller) reconciles objects it owns back to the state
+    declared in Git. Deleting and recreating such an object outside Flux
+    would be immediately overwritten and would cause GitOps drift, so writes
+    refuse rather than silently fighting the controller.
+    """
 
 
 # Kubernetes client
@@ -154,6 +204,7 @@ class KubernetesClient:
         self._api_client: ApiClient | None = None
         self._custom_objects: CustomObjectsApi | None = None
         self._core_v1: CoreV1Api | None = None
+        self._apiextensions: ApiextensionsV1Api | None = None
 
     # Connection lifecycle methods
     async def _ensure_connected(self) -> None:
@@ -193,6 +244,7 @@ class KubernetesClient:
             api_client = ApiClient()
             custom_objects = CustomObjectsApi(api_client)
             core_v1 = CoreV1Api(api_client)
+            apiextensions = ApiextensionsV1Api(api_client)
         except Exception as exc:
             raise KubernetesClientError(
                 f"Failed to initialise Kubernetes API client: {exc}"
@@ -201,6 +253,7 @@ class KubernetesClient:
         self._api_client = api_client
         self._custom_objects = custom_objects
         self._core_v1 = core_v1
+        self._apiextensions = apiextensions
 
     async def _custom_objects_api(self) -> CustomObjectsApi:
         """Return the initialised `CustomObjectsApi`, connecting if needed.
@@ -229,6 +282,20 @@ class KubernetesClient:
         if self._core_v1 is None:
             raise KubernetesClientError("Kubernetes client not initialised")
         return self._core_v1
+
+    async def _apiextensions_api(self) -> ApiextensionsV1Api:
+        """Return the initialised `ApiextensionsV1Api`, connecting if needed.
+
+        Returns:
+            `ApiextensionsV1Api` instance guaranteed to be non-`None`.
+
+        Raises:
+            KubernetesClientError: if the client failed to initialise.
+        """
+        await self._ensure_connected()
+        if self._apiextensions is None:
+            raise KubernetesClientError("Kubernetes client not initialised")
+        return self._apiextensions
 
     async def _get_api_client(self) -> ApiClient:
         """Return the initialised underlying `ApiClient`, connecting if needed.
@@ -267,6 +334,7 @@ class KubernetesClient:
             self._api_client = None
             self._custom_objects = None
             self._core_v1 = None
+            self._apiextensions = None
             logger.debug("kubernetes: client closed")
 
     async def __aenter__(self) -> KubernetesClient:
@@ -324,8 +392,7 @@ class KubernetesClient:
         except ApiException as exc:
             if exc.status == 403:
                 raise KubernetesPermissionError(
-                    "Permission denied listing namespaces — "
-                    "check ServiceAccount RBAC rules"
+                    "Permission denied listing namespaces — " "check ServiceAccount RBAC rules"
                 ) from exc
             raise KubernetesClientError(
                 f"Failed to list namespaces: HTTP {exc.status} {exc.reason}"
@@ -538,6 +605,167 @@ class KubernetesClient:
                 f"HTTP {exc.status} {exc.reason}"
             ) from exc
 
+    # Generic Custom Object creation and deletion
+    # -------------------------------------------------------------------------------------------------
+
+    async def create_custom_object(
+        self,
+        descriptor: CRDDescriptor,
+        body: dict[str, Any],
+        *,
+        namespace: str,
+    ) -> dict[str, Any]:
+        """Create a single custom object.
+
+        Always sends `fieldValidation=Strict` so a misspelled or unknown
+        field is rejected rather than silently dropped.
+
+        Args:
+            descriptor: Which CRD to create against.
+            body:       The full object manifest (including `apiVersion`,
+                        `kind`, `metadata`, `spec`).
+            namespace:  Namespace to create the object in.
+
+        Returns:
+            Raw response dict from the API server.
+
+        Raises:
+            KubernetesBadRequestError: if the API server rejects the object
+                as malformed (HTTP 400), e.g. an unknown field under strict
+                field validation.
+            KubernetesPermissionError: on HTTP 403 (RBAC issue).
+            KubernetesClientError: on any other API error.
+        """
+        api = await self._custom_objects_api()
+        try:
+            return await api.create_namespaced_custom_object(
+                group=descriptor.group,
+                version=descriptor.version,
+                namespace=namespace,
+                plural=descriptor.plural,
+                body=body,
+                field_validation="Strict",
+            )
+        except ApiException as exc:
+            if exc.status == 403:
+                raise KubernetesPermissionError(
+                    f"Permission denied creating {descriptor.kind} in namespace '{namespace}' — "
+                    f"check ServiceAccount RBAC rules"
+                ) from exc
+            if exc.status == 400:
+                raise KubernetesBadRequestError(
+                    f"{descriptor.kind} manifest rejected by the API server: {exc.reason}"
+                ) from exc
+            raise KubernetesClientError(
+                f"Failed to create {descriptor.kind} in namespace '{namespace}': "
+                f"HTTP {exc.status} {exc.reason}"
+            ) from exc
+
+    async def dry_run_create_custom_object(
+        self,
+        descriptor: CRDDescriptor,
+        body: dict[str, Any],
+        *,
+        namespace: str,
+    ) -> None:
+        """Validate a manifest via a dry-run create, without persisting it.
+
+        Uses `dryRun=All` plus `fieldValidation=Strict` so field-level
+        mistakes (typos, unknown fields) surface as a `KubernetesBadRequestError`
+        before anything is written.
+
+        A `409 Conflict` (object already exists) is deliberately swallowed:
+        existence and Flux ownership are checked separately by the caller
+        before deciding whether to create or replace, so a name collision at
+        this stage carries no new information.
+
+        Args:
+            descriptor: Which CRD to validate against.
+            body:       The full object manifest.
+            namespace:  Namespace the object would be created in.
+
+        Raises:
+            KubernetesBadRequestError: if the manifest fails field validation.
+            KubernetesPermissionError: on HTTP 403 (RBAC issue).
+            KubernetesClientError: on any other API error.
+        """
+        api = await self._custom_objects_api()
+        try:
+            await api.create_namespaced_custom_object(
+                group=descriptor.group,
+                version=descriptor.version,
+                namespace=namespace,
+                plural=descriptor.plural,
+                body=body,
+                dry_run="All",
+                field_validation="Strict",
+            )
+        except ApiException as exc:
+            if exc.status == 409:
+                return
+            if exc.status == 403:
+                raise KubernetesPermissionError(
+                    f"Permission denied validating {descriptor.kind} in namespace "
+                    f"'{namespace}' — check ServiceAccount RBAC rules"
+                ) from exc
+            if exc.status == 400:
+                detail = exc.reason
+                if exc.body:
+                    try:
+                        detail = json.loads(exc.body).get("message", exc.reason)
+                    except (json.JSONDecodeError, TypeError):
+                        detail = exc.reason
+                raise KubernetesBadRequestError(
+                    f"{descriptor.kind} manifest is invalid: {detail}"
+                ) from exc
+            raise KubernetesClientError(
+                f"Failed to dry-run validate {descriptor.kind} in namespace "
+                f"'{namespace}': HTTP {exc.status} {exc.reason}"
+            ) from exc
+
+    async def delete_custom_object(
+        self,
+        descriptor: CRDDescriptor,
+        name: str,
+        *,
+        namespace: str,
+    ) -> None:
+        """Delete a single custom object by name.
+
+        Args:
+            descriptor: Which CRD to delete from.
+            name:       Object name.
+            namespace:  Namespace the object lives in.
+
+        Raises:
+            KubernetesNotFoundError: if the object does not exist.
+            KubernetesPermissionError: on HTTP 403 (RBAC issue).
+            KubernetesClientError: on any other API error.
+        """
+        api = await self._custom_objects_api()
+        try:
+            await api.delete_namespaced_custom_object(
+                group=descriptor.group,
+                version=descriptor.version,
+                namespace=namespace,
+                plural=descriptor.plural,
+                name=name,
+            )
+        except ApiException as exc:
+            if exc.status == 404:
+                raise KubernetesNotFoundError(
+                    f"{descriptor.kind} '{name}' not found in namespace '{namespace}'"
+                ) from exc
+            if exc.status == 403:
+                raise KubernetesPermissionError(
+                    f"Permission denied deleting {descriptor.kind} '{name}' in namespace "
+                    f"'{namespace}' — check ServiceAccount RBAC rules"
+                ) from exc
+            raise KubernetesClientError(
+                f"Failed to delete {descriptor.kind} '{name}' in namespace '{namespace}': "
+                f"HTTP {exc.status} {exc.reason}"
+            ) from exc
+
     # List and get NetworkDeviceTarget CRDs
     # -------------------------------------------------------------------------------------------------
 
@@ -639,3 +867,207 @@ class KubernetesClient:
             return NetworkHostTarget.model_validate(raw)
         except ValidationError as exc:
             raise KubernetesSchemaError(f"Failed to validate NetworkHostTarget: {exc}") from exc
+
+    # List and get PrometheusRule CRDs
+    # -------------------------------------------------------------------------------------------------
+
+    async def list_prometheus_rules(
+        self,
+        *,
+        namespace: str = "",
+        label_selector: str | None = None,
+    ) -> list[PrometheusRule]:
+        """Return `PrometheusRule` CRs, defaulting to all namespaces.
+
+        Unlike `list_network_device_targets`, the default scope here is
+        cluster-wide (empty `namespace`) rather than the client's configured
+        default namespace — alert rules are surfaced across the whole
+        cluster unless a specific namespace is requested.
+
+        Args:
+            namespace:      Restrict to one namespace; empty string (default)
+                             lists across all namespaces.
+            label_selector: K8s label selector, e.g. `"role=alert-rules"`.
+
+        Returns:
+            List of `PrometheusRule` models.
+
+        Raises:
+            KubernetesBadRequestError: if `label_selector` is syntactically invalid.
+            KubernetesSchemaError: if the response fails Pydantic validation.
+        """
+        items = await self.list_custom_objects(
+            PROMETHEUS_RULE,
+            namespace=namespace,
+            label_selector=label_selector,
+        )
+        try:
+            return [PrometheusRule.model_validate(item) for item in items]
+        except ValidationError as exc:
+            raise KubernetesSchemaError(f"Failed to validate PrometheusRule: {exc}") from exc
+
+    async def get_prometheus_rule(
+        self,
+        name: str,
+        *,
+        namespace: str,
+    ) -> PrometheusRule:
+        """Return a single `PrometheusRule` CR by name.
+
+        Args:
+            name:      Object name.
+            namespace: Namespace the object lives in.
+
+        Returns:
+            `PrometheusRule` resource.
+
+        Raises:
+            KubernetesNotFoundError: if the object does not exist.
+            KubernetesSchemaError: if the response fails Pydantic validation.
+        """
+        raw = await self.get_custom_object(PROMETHEUS_RULE, name, namespace=namespace)
+        try:
+            return PrometheusRule.model_validate(raw)
+        except ValidationError as exc:
+            raise KubernetesSchemaError(f"Failed to validate PrometheusRule: {exc}") from exc
+
+    async def dry_run_create_prometheus_rule(
+        self,
+        manifest: dict[str, Any],
+        *,
+        namespace: str,
+    ) -> None:
+        """Validate a `PrometheusRule` manifest via a dry-run create.
+
+        See `dry_run_create_custom_object` for exact semantics — a `409`
+        from an object that already exists under the same name is expected
+        and ignored; existence and Flux ownership are checked separately by
+        `apply_prometheus_rule`.
+
+        Args:
+            manifest:  Full `PrometheusRule` manifest.
+            namespace: Namespace the object would be created in.
+
+        Raises:
+            KubernetesBadRequestError: if the manifest fails field validation.
+            KubernetesPermissionError: on HTTP 403 (RBAC issue).
+            KubernetesClientError: on any other API error.
+        """
+        await self.dry_run_create_custom_object(PROMETHEUS_RULE, manifest, namespace=namespace)
+
+    async def apply_prometheus_rule(
+        self,
+        manifest: dict[str, Any],
+        *,
+        namespace: str,
+    ) -> dict[str, Any]:
+        """Create or replace a `PrometheusRule`, refusing a Flux-managed replace.
+
+        If no object with the manifest's name exists in `namespace`, it is
+        created directly. If one exists, it is deleted then recreated — the
+        tool always sends a complete object, so replacing by recreate avoids
+        server-side-apply merge semantics — unless the existing object
+        carries Flux-managed labels, in which case the write is refused.
+
+        Args:
+            manifest:  Full `PrometheusRule` manifest, including `metadata.name`.
+            namespace: Namespace to apply the object in.
+
+        Returns:
+            Raw response dict from the create call.
+
+        Raises:
+            KubernetesFluxManagedError: if the existing object is Flux-managed.
+            KubernetesBadRequestError: if the manifest is rejected as malformed.
+            KubernetesPermissionError: on HTTP 403 (RBAC issue).
+            KubernetesClientError: on any other API error.
+        """
+        name = manifest.get("metadata", {}).get("name", "")
+
+        try:
+            existing = await self.get_custom_object(PROMETHEUS_RULE, name, namespace=namespace)
+        except KubernetesNotFoundError:
+            existing = None
+
+        if existing is not None:
+            existing_labels = existing.get("metadata", {}).get("labels") or {}
+            if is_flux_managed(existing_labels):
+                raise KubernetesFluxManagedError(
+                    f"PrometheusRule '{namespace}/{name}' is managed by Flux "
+                    f"(labels: {sorted(existing_labels)}) — refusing to overwrite it. "
+                    "Update the source-controlled manifest instead."
+                )
+            await self.delete_custom_object(PROMETHEUS_RULE, name, namespace=namespace)
+
+        return await self.create_custom_object(PROMETHEUS_RULE, manifest, namespace=namespace)
+
+    # List Prometheus CRDs
+    # -------------------------------------------------------------------------------------------------
+
+    async def list_prometheuses(self, *, namespace: str = "") -> list[Prometheus]:
+        """Return `Prometheus` CRs, defaulting to all namespaces.
+
+        Used to determine which `PrometheusRule` labels/namespaces will
+        actually be evaluated — see `spec.ruleSelector`,
+        `spec.ruleNamespaceSelector`, and `spec.evaluationInterval` on
+        the returned models.
+
+        Args:
+            namespace: Restrict to one namespace; empty string (default)
+            lists across all namespaces.
+
+        Returns:
+            List of `Prometheus` models.
+
+        Raises:
+            KubernetesSchemaError: if the response fails Pydantic validation.
+        """
+        items = await self.list_custom_objects(PROMETHEUS, namespace=namespace)
+        try:
+            return [Prometheus.model_validate(item) for item in items]
+        except ValidationError as exc:
+            raise KubernetesSchemaError(f"Failed to validate Prometheus: {exc}") from exc
+
+    # PrometheusRule CRD schema
+    # -------------------------------------------------------------------------------------------------
+
+    async def get_prometheus_rule_crd_schema(self) -> dict[str, Any]:
+        """Fetch the live `spec` OpenAPI schema of the PrometheusRule CRD.
+
+        Reads the storage version's `openAPIV3Schema` from the API server so
+        the `bng-add-alert-rule` prompt always reflects the currently
+        installed prometheus-operator CRD version, rather than a vendored
+        copy that can drift. Only the `spec` subtree is returned — `status`
+        and `metadata` are not authored by this feature.
+
+        Returns:
+            The `spec` property schema as a plain dict.
+
+        Raises:
+            KubernetesNotFoundError: if the CRD is not installed in the cluster.
+            KubernetesClientError: on any other API error.
+        """
+        api = await self._apiextensions_api()
+        try:
+            crd = await api.read_custom_resource_definition(name=PROMETHEUS_RULE_CRD_NAME)
+        except ApiException as exc:
+            if exc.status == 404:
+                raise KubernetesNotFoundError(
+                    f"CustomResourceDefinition '{PROMETHEUS_RULE_CRD_NAME}' not found — "
+                    "is the prometheus-operator installed?"
+                ) from exc
+            raise KubernetesClientError(
+                f"Failed to read CRD '{PROMETHEUS_RULE_CRD_NAME}': "
+                f"HTTP {exc.status} {exc.reason}"
+            ) from exc
+
+        api_client = await self._get_api_client()
+        raw: dict[str, Any] = api_client.sanitize_for_serialization(crd)
+        versions: list[dict[str, Any]] = raw.get("spec", {}).get("versions", [])
+        version = next(
+            (v for v in versions if v.get("storage")),
+            versions[0] if versions else {},
+        )
+        schema: dict[str, Any] = version.get("schema", {}).get("openAPIV3Schema", {})
+        spec_schema: dict[str, Any] = schema.get("properties", {}).get("spec", {})
+        return spec_schema

@@ -1,0 +1,19 @@
+[
+  {
+    "args": {
+      "namespace": ""
+    },
+    "response_type": "list",
+    "mock_data": [
+      {
+        "role": "user",
+        "content": {
+          "type": "text",
+          "text": "# BNG Controller — Review Alert Rules\n\nRead `bng://alerts/configured` to list the `PrometheusRule` objects deployed in all namespaces.\n\n## Which Prometheus instances actually evaluate rules\n- `nok-bng/bng-tel-prom`: requires labels `role=alert-rules`; namespace restricted to its own namespace (`nok-bng`) — the rule must live there; `evaluationInterval=30s`, `scrapeInterval=15s`.\n\n## What to report, per rule\n- Whether it is an alerting rule (`alert`) or a recording rule (`record`) — this controller only creates alerting rules, but the resource reports whatever is actually deployed.\n- Its labels, and whether they satisfy at least one instance's `ruleSelector` above — a rule whose labels don't match is deployed but **never evaluated**.\n- Whether its namespace is one the matching instance's `ruleNamespaceSelector` actually covers.\n\nGroup the answer into rules that are actively evaluated versus rules that are present but inert (label or namespace mismatch).",
+          "annotations": null,
+          "meta": null
+        }
+      }
+    ]
+  }
+]

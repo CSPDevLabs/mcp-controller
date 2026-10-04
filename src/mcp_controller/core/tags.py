@@ -15,6 +15,7 @@ class CapabilityTag(StrEnum):
     LOGS = "logs"
     RESOURCES = "resources"
     SUBSCRIBER_MGMT = "subscriber-mgmt"
+    ALERTS = "alerts"
 
 
 class ControllerTag(StrEnum):

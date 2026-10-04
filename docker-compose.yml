@@ -15,6 +15,7 @@ services:
       # MCP_MOCK: "true"
       # MCP_MOCK_DATA_RECORD: "true"
       MCP_MOCK_DATA_DIR: "${MCP_MOCK_DATA_DIR:-/app/tests/mocks/data}"
+      MCP_ALERTS_WRITE_ENABLED: "${MCP_ALERTS_WRITE_ENABLED:-true}"
     # Ports arn't needed with host networking, but in case mode is different uncomment.
     # ports:
     #   - "8088:8088"

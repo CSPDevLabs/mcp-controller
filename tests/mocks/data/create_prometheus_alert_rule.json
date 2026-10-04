@@ -1,0 +1,21 @@
+[
+  {
+    "args": {
+      "manifest": "apiVersion: monitoring.coreos.com/v1\nkind: PrometheusRule\nmetadata:\n  name: system-resource-alerts\n  namespace: nok-bng\n  labels:\n    role: alert-rules # Must match the ruleSelector above\nspec:\n  groups:\n  - name: system-usage\n    rules:\n    - alert: HighCpuUsage\n      expr: state_system_cpu_summary_usage_cpu_usage > 12\n      for: 1m\n      labels:\n        severity: warning\n      annotations:\n        summary: \"High CPU usage on {{ $labels.source }}\"\n        description: \"CPU usage is at {{ $value }}% (threshold 12%)\"\n\n    - alert: HighMemoryUsage\n      expr: (state_system_memory_pools_summary_total_in_use\n        / state_system_memory_pools_summary_available_memory) * 100 > 2\n      for: 1m\n      labels:\n        severity: warning\n      annotations:\n        summary: \"High Memory usage on {{ $labels.source }}\"\n        description: \"Memory utilization is at {{ $value }}% (threshold 2%)\"\n"
+    },
+    "response_type": "AlertRuleApplyResult",
+    "mock_data": {
+      "name": "system-resource-alerts",
+      "namespace": "nok-bng",
+      "labels": {
+        "role": "alert-rules"
+      },
+      "groups": [
+        "system-usage"
+      ],
+      "rules_applied": 2,
+      "matches_rule_selector": true,
+      "warnings": []
+    }
+  }
+]

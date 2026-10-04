@@ -1,0 +1,28 @@
+{
+  "status": "success",
+  "data": [
+    "ALERTS",
+    "ALERTS_FOR_STATE",
+    "scrape_duration_seconds",
+    "scrape_samples_scraped",
+    "scrape_samples_post_metric_relabeling",
+    "state_card_fp_resource_usage_egress_policers_allocated",
+    "state_card_fp_resource_usage_egress_policers_total",
+    "state_card_fp_resource_usage_egress_queues_allocated",
+    "state_card_fp_resource_usage_egress_queues_total",
+    "state_card_fp_resource_usage_ingress_policers_allocated",
+    "state_card_fp_resource_usage_ingress_policers_total",
+    "state_card_fp_resource_usage_ingress_queues_allocated",
+    "state_card_fp_resource_usage_ingress_queues_total",
+    "state_card_mda_resource_usage_sap_instances_allocated",
+    "state_subscriber_mgmt_statistics_sessions_current_value",
+    "state_subscriber_mgmt_statistics_total_hosts_current_value",
+    "state_subscriber_mgmt_statistics_total_hosts_peak_value",
+    "state_system_cpu_summary_usage_cpu_usage",
+    "state_system_memory_pools_summary_available_memory",
+    "state_system_memory_pools_summary_total_in_use",
+    "state_system_resource_usage_subscriber_next_hop_entries_allocated",
+    "state_system_resource_usage_subscriber_next_hop_entries_total",
+    "up"
+  ]
+}
